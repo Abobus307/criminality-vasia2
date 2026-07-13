@@ -520,6 +520,14 @@ local function ApplyChams(player)
         RemoveChams(player)
         return
     end
+    local root = GetRootPart(player)
+    if root then
+        local dist = GetDistanceTo(root.Position)
+        if dist > Settings.ESP.MaxDistance then
+            RemoveChams(player)
+            return
+        end
+    end
     local highlight = ChamsObjects[player]
     if not highlight then
         highlight = Instance.new("Highlight")
@@ -563,6 +571,34 @@ local function InitChams()
         SetupChamsForPlayer(player)
     end
     Players.PlayerAdded:Connect(SetupChamsForPlayer)
+
+    local chamsDistanceConnection = RunService.RenderStepped:Connect(function()
+        if not Settings.Chams.Enabled then
+            for player, _ in pairs(ChamsObjects) do
+                RemoveChams(player)
+            end
+            return
+        end
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                local character = GetCharacter(player)
+                if not character then
+                    RemoveChams(player)
+                else
+                    local root = GetRootPart(player)
+                    if root then
+                        local dist = GetDistanceTo(root.Position)
+                        if dist > Settings.ESP.MaxDistance then
+                            RemoveChams(player)
+                        elseif not ChamsObjects[player] then
+                            ApplyChams(player)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    table.insert(Connections, chamsDistanceConnection)
 end
 
 local function InitSilentAim()
