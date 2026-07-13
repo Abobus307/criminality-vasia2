@@ -1,4 +1,4 @@
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -161,25 +161,33 @@ local function GetClosestPlayer(config)
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player == LocalPlayer then continue end
-        if not IsAlive(player) then continue end
-        if config.CheckDowned and IsDowned(player) then continue end
-        if config.CheckForceField and HasForceField(player) then continue end
+        local skip = false
+        if player == LocalPlayer then skip = true end
+        if not skip and not IsAlive(player) then skip = true end
+        if not skip and config.CheckDowned and IsDowned(player) then skip = true end
+        if not skip and config.CheckForceField and HasForceField(player) then skip = true end
 
-        local character = GetCharacter(player)
-        if not character then continue end
-        local part = character:FindFirstChild(config.TargetPart)
-        if not part then continue end
-
-        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-        if not onScreen then continue end
-
-        local distance2D = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-        if distance2D > shortest then continue end
-        if config.WallCheck and not IsVisible(part) then continue end
-
-        closest = player
-        shortest = distance2D
+        if not skip then
+            local character = GetCharacter(player)
+            if not character then skip = true end
+            if not skip then
+                local part = character:FindFirstChild(config.TargetPart)
+                if not part then skip = true end
+                if not skip then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if not onScreen then skip = true end
+                    if not skip then
+                        local distance2D = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        if distance2D > shortest then skip = true end
+                        if not skip and config.WallCheck and not IsVisible(part) then skip = true end
+                        if not skip then
+                            closest = player
+                            shortest = distance2D
+                        end
+                    end
+                end
+            end
+        end
     end
     return closest
 end
@@ -229,8 +237,8 @@ local function CreateESPObject(player)
         Corner = {},
         CornerOutline = {},
         BoxFill = NewDrawing("Square", {Filled = true, Transparency = Settings.ESP.BoxFillTransparency, Visible = false}),
-        HealthBar = NewDrawing("Line", {Thickness = 2, Visible = false}),
-        HealthBarOutline = NewDrawing("Line", {Thickness = 4, Color = Color3.new(0, 0, 0), Visible = false}),
+        HealthBar = NewDrawing("Line", {Thickness = 3, Visible = false}),
+        HealthBarOutline = NewDrawing("Line", {Thickness = 5, Color = Color3.new(0, 0, 0), Visible = false}),
         Name = NewDrawing("Text", {Size = Settings.ESP.NameSize, Center = true, Outline = true, Font = 2, Visible = false}),
         Distance = NewDrawing("Text", {Size = Settings.ESP.DistanceSize, Center = true, Outline = true, Font = 2, Color = Settings.ESP.DistanceColor, Visible = false}),
         Tool = NewDrawing("Text", {Size = Settings.ESP.ToolSize, Center = true, Outline = true, Font = 2, Color = Settings.ESP.ToolColor, Visible = false}),
@@ -327,13 +335,13 @@ local function UpdateESP(player)
         local barHeight = height * healthPercent
         local barX, barY
         if Settings.ESP.HealthBarPosition == "Left" then
-            barX = position.X - 8
+            barX = position.X - 6
             barY = position.Y
         elseif Settings.ESP.HealthBarPosition == "Right" then
-            barX = position.X + width + 8
+            barX = position.X + width + 6
             barY = position.Y
         else
-            barX = position.X - 8
+            barX = position.X - 6
             barY = position.Y
         end
         data.HealthBarOutline.From = Vector2.new(barX, barY)
@@ -415,17 +423,33 @@ local function UpdateESP(player)
 
     if Settings.ESP.Skeleton then
         local isR15 = character:FindFirstChild("UpperTorso") ~= nil
-        local map = isR15 and {
-            {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
-            {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
-            {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-            {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
-            {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
-        } or {
-            {"Head", "Torso"}, {"Torso", "Left Arm"}, {"Left Arm", "Left Leg"},
-            {"Torso", "Right Arm"}, {"Right Arm", "Right Leg"},
-            {"Torso", "Left Leg"}, {"Torso", "Right Leg"},
-        }
+        local map
+        if isR15 then
+            map = {
+                {"Head", "UpperTorso"},
+                {"UpperTorso", "LowerTorso"},
+                {"UpperTorso", "LeftUpperArm"},
+                {"LeftUpperArm", "LeftLowerArm"},
+                {"LeftLowerArm", "LeftHand"},
+                {"UpperTorso", "RightUpperArm"},
+                {"RightUpperArm", "RightLowerArm"},
+                {"RightLowerArm", "RightHand"},
+                {"LowerTorso", "LeftUpperLeg"},
+                {"LeftUpperLeg", "LeftLowerLeg"},
+                {"LeftLowerLeg", "LeftFoot"},
+                {"LowerTorso", "RightUpperLeg"},
+                {"RightUpperLeg", "RightLowerLeg"},
+                {"RightLowerLeg", "RightFoot"},
+            }
+        else
+            map = {
+                {"Head", "Torso"},
+                {"Torso", "Left Arm"},
+                {"Torso", "Right Arm"},
+                {"Torso", "Left Leg"},
+                {"Torso", "Right Leg"},
+            }
+        end
         local index = 1
         for _, pair in ipairs(map) do
             local part1 = character:FindFirstChild(pair[1])
@@ -446,7 +470,7 @@ local function UpdateESP(player)
             elseif line then
                 line.Visible = false
             end
-            index += 1
+            index = index + 1
         end
         for i = index, #data.Skeleton do
             if data.Skeleton[i] then
@@ -469,9 +493,10 @@ local function InitESP()
             return
         end
         for _, player in ipairs(Players:GetPlayers()) do
-            if player == LocalPlayer then continue end
-            CreateESPObject(player)
-            UpdateESP(player)
+            if player ~= LocalPlayer then
+                CreateESPObject(player)
+                UpdateESP(player)
+            end
         end
     end)
     table.insert(Connections, connection)
@@ -703,10 +728,10 @@ local function SetSpeedhack(enabled)
             local root = character and character:FindFirstChild("HumanoidRootPart")
             if not root then return end
             local direction = Vector3.new()
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction += Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction -= Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction -= Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction += Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then direction = direction + Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then direction = direction - Camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then direction = direction - Camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then direction = direction + Camera.CFrame.RightVector end
             if direction.Magnitude > 0 then
                 direction = Vector3.new(direction.X, 0, direction.Z).Unit
                 root.Velocity = Vector3.new(
@@ -737,520 +762,501 @@ end
 
 local Window = WindUI:CreateWindow({
     Title = "Criminality Lite",
-    Icon = "crosshair",
+    Icon = "lucide:crosshair",
+    Author = "by CriminalityLite",
     Folder = "CriminalityLite",
-    OpenButton = {
-        Title = "Open Criminality Lite",
-        Enabled = true,
-        Draggable = true,
-        Color = ColorSequence.new(Color3.fromHex("#FF4757"), Color3.fromHex("#FF6B81")),
-    },
-    Topbar = {
-        Height = 44,
-        ButtonsType = "Mac",
-    },
+    Theme = "Dark",
+    ToggleKey = Enum.KeyCode.G,
+    Size = UDim2.fromOffset(560, 440),
+    Transparent = true,
+    Resizable = true,
+    SideBarWidth = 180
 })
 
-Window:SetToggleKey(Enum.KeyCode.G)
+local Tabs = {
+    Combat = Window:Tab({Title = "Combat", Icon = "lucide:swords"}),
+    Visual = Window:Tab({Title = "Visual", Icon = "lucide:eye"}),
+    Misc = Window:Tab({Title = "Misc", Icon = "lucide:zap"}),
+    Settings = Window:Tab({Title = "Settings", Icon = "lucide:settings"})
+}
 
-local CombatSection = Window:Section({ Title = "Combat" })
-local VisualSection = Window:Section({ Title = "Visual" })
-local MiscSection = Window:Section({ Title = "Misc" })
-local SettingsSection = Window:Section({ Title = "Settings" })
+Tabs.Combat:Section({Title = "Silent Aim"})
 
-local CombatTab = CombatSection:Tab({
-    Title = "Combat",
-    Icon = "sword",
-    IconColor = Color3.fromHex("#FF4757"),
-})
-
-CombatTab:Toggle({
-    Flag = "SilentAimToggle",
+Tabs.Combat:Toggle({
     Title = "Silent Aim",
     Desc = "Redirects bullets to target",
-    Default = false,
+    Icon = "lucide:crosshair",
+    Value = false,
     Callback = function(v)
         Settings.SilentAim.Enabled = v
     end
 })
 
-CombatTab:Toggle({
-    Flag = "SilentAimShowFOV",
+Tabs.Combat:Toggle({
     Title = "Show FOV Circle",
-    Default = true,
+    Icon = "lucide:circle",
+    Value = true,
     Callback = function(v)
         Settings.SilentAim.ShowFOV = v
     end
 })
 
-CombatTab:Slider({
-    Flag = "SilentAimFOV",
+Tabs.Combat:Slider({
     Title = "Silent Aim FOV",
+    Icon = "lucide:scan",
     Step = 1,
-    Value = { Min = 10, Max = 500, Default = 150 },
+    Value = {Min = 10, Max = 500, Default = 150},
     Callback = function(v)
         Settings.SilentAim.FOV = v
     end
 })
 
-CombatTab:Slider({
-    Flag = "SilentAimHitChance",
+Tabs.Combat:Slider({
     Title = "Hit Chance",
+    Icon = "lucide:percent",
     Step = 1,
-    Value = { Min = 1, Max = 100, Default = 100 },
+    Value = {Min = 1, Max = 100, Default = 100},
     Callback = function(v)
         Settings.SilentAim.HitChance = v
     end
 })
 
-CombatTab:Dropdown({
-    Flag = "SilentAimTargetPart",
+Tabs.Combat:Dropdown({
     Title = "Target Part",
-    Values = { "Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso" },
+    Icon = "lucide:target",
+    Values = {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso"},
     Value = "Head",
     Callback = function(v)
         Settings.SilentAim.TargetPart = v
     end
 })
 
-CombatTab:Toggle({
-    Flag = "SilentAimWallCheck",
+Tabs.Combat:Toggle({
     Title = "Wall Check",
-    Default = true,
+    Icon = "lucide:brick-wall",
+    Value = true,
     Callback = function(v)
         Settings.SilentAim.WallCheck = v
     end
 })
 
-CombatTab:Toggle({
-    Flag = "SilentAimDowned",
+Tabs.Combat:Toggle({
     Title = "Ignore Downed",
-    Default = true,
+    Icon = "lucide:heart-off",
+    Value = true,
     Callback = function(v)
         Settings.SilentAim.CheckDowned = v
     end
 })
 
-CombatTab:Space()
+Tabs.Combat:Section({Title = "Aimbot"})
 
-CombatTab:Toggle({
-    Flag = "AimbotToggle",
+Tabs.Combat:Toggle({
     Title = "Aimbot",
     Desc = "Smooth aim with prediction",
-    Default = false,
+    Icon = "lucide:target",
+    Value = false,
     Callback = function(v)
         Settings.Aimbot.Enabled = v
     end
 })
 
-CombatTab:Toggle({
-    Flag = "AimbotShowFOV",
+Tabs.Combat:Toggle({
     Title = "Show Aimbot FOV",
-    Default = true,
+    Icon = "lucide:circle",
+    Value = true,
     Callback = function(v)
         Settings.Aimbot.ShowFOV = v
     end
 })
 
-CombatTab:Slider({
-    Flag = "AimbotFOV",
+Tabs.Combat:Slider({
     Title = "Aimbot FOV",
+    Icon = "lucide:scan",
     Step = 1,
-    Value = { Min = 10, Max = 500, Default = 200 },
+    Value = {Min = 10, Max = 500, Default = 200},
     Callback = function(v)
         Settings.Aimbot.FOV = v
     end
 })
 
-CombatTab:Slider({
-    Flag = "AimbotSmooth",
+Tabs.Combat:Slider({
     Title = "Smoothness",
+    Icon = "lucide:activity",
     Step = 0.01,
-    Value = { Min = 0.01, Max = 1, Default = 0.15 },
+    Value = {Min = 0.01, Max = 1, Default = 0.15},
     Callback = function(v)
         Settings.Aimbot.Smoothness = v
     end
 })
 
-CombatTab:Slider({
-    Flag = "AimbotPrediction",
+Tabs.Combat:Slider({
     Title = "Prediction",
+    Icon = "lucide:timer",
     Step = 0.001,
-    Value = { Min = 0, Max = 0.5, Default = 0.165 },
+    Value = {Min = 0, Max = 0.5, Default = 0.165},
     Callback = function(v)
         Settings.Aimbot.Prediction = v
     end
 })
 
-CombatTab:Dropdown({
-    Flag = "AimbotTargetPart",
+Tabs.Combat:Dropdown({
     Title = "Aimbot Target Part",
-    Values = { "Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso" },
+    Icon = "lucide:target",
+    Values = {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso"},
     Value = "Head",
     Callback = function(v)
         Settings.Aimbot.TargetPart = v
     end
 })
 
-CombatTab:Dropdown({
-    Flag = "AimbotKey",
+Tabs.Combat:Dropdown({
     Title = "Aimbot Key",
-    Values = { "MB1", "MB2", "Q", "E", "F", "X", "Z", "C" },
+    Icon = "lucide:keyboard",
+    Values = {"MB1", "MB2", "Q", "E", "F", "X", "Z", "C"},
     Value = "MB2",
     Callback = function(v)
         Settings.Aimbot.Key = v
     end
 })
 
-CombatTab:Dropdown({
-    Flag = "AimbotMode",
+Tabs.Combat:Dropdown({
     Title = "Aimbot Mode",
-    Values = { "Hold", "Toggle" },
+    Icon = "lucide:toggle-left",
+    Values = {"Hold", "Toggle"},
     Value = "Hold",
     Callback = function(v)
         Settings.Aimbot.Mode = v
     end
 })
 
-CombatTab:Toggle({
-    Flag = "AimbotWallCheck",
+Tabs.Combat:Toggle({
     Title = "Aimbot Wall Check",
-    Default = true,
+    Icon = "lucide:brick-wall",
+    Value = true,
     Callback = function(v)
         Settings.Aimbot.WallCheck = v
     end
 })
 
-CombatTab:Space()
+Tabs.Combat:Section({Title = "Auto Features"})
 
-CombatTab:Toggle({
-    Flag = "AutoShootToggle",
+Tabs.Combat:Toggle({
     Title = "Auto Shoot",
     Desc = "Shoots when target in aimbot FOV",
-    Default = false,
+    Icon = "lucide:flame",
+    Value = false,
     Callback = function(v)
         SetAutoShoot(v)
     end
 })
 
-CombatTab:Space()
-
-CombatTab:Toggle({
-    Flag = "SpinbotToggle",
+Tabs.Combat:Toggle({
     Title = "Spinbot",
     Desc = "Auto-spin",
-    Default = false,
+    Icon = "lucide:rotate-cw",
+    Value = false,
     Callback = function(v)
         SetSpinbot(v)
     end
 })
 
-CombatTab:Slider({
-    Flag = "SpinbotSpeed",
+Tabs.Combat:Slider({
     Title = "Spin Speed",
+    Icon = "lucide:gauge",
     Step = 1,
-    Value = { Min = 1, Max = 100, Default = 30 },
+    Value = {Min = 1, Max = 100, Default = 30},
     Callback = function(v)
         Settings.Spinbot.Speed = v
     end
 })
 
-local VisualTab = VisualSection:Tab({
-    Title = "Visual",
-    Icon = "eye",
-    IconColor = Color3.fromHex("#2ED573"),
-})
+Tabs.Visual:Section({Title = "ESP"})
 
-VisualTab:Toggle({
-    Flag = "ESPToggle",
+Tabs.Visual:Toggle({
     Title = "ESP",
     Desc = "Master ESP switch",
-    Default = false,
+    Icon = "lucide:eye",
+    Value = false,
     Callback = function(v)
         Settings.ESP.Enabled = v
     end
 })
 
-VisualTab:Toggle({
-    Flag = "ESPCornerBox",
+Tabs.Visual:Toggle({
     Title = "Corner Box",
-    Default = true,
+    Icon = "lucide:square",
+    Value = true,
     Callback = function(v)
         Settings.ESP.CornerBox = v
     end
 })
 
-VisualTab:Toggle({
-    Flag = "ESPBoxFilled",
+Tabs.Visual:Toggle({
     Title = "Box Fill",
-    Default = false,
+    Icon = "lucide:square-dot",
+    Value = false,
     Callback = function(v)
         Settings.ESP.BoxFilled = v
     end
 })
 
-VisualTab:Slider({
-    Flag = "ESPBoxThickness",
+Tabs.Visual:Slider({
     Title = "Box Thickness",
+    Icon = "lucide:minus",
     Step = 0.5,
-    Value = { Min = 0.5, Max = 5, Default = 1.5 },
+    Value = {Min = 0.5, Max = 5, Default = 1.5},
     Callback = function(v)
         Settings.ESP.BoxThickness = v
     end
 })
 
-VisualTab:Slider({
-    Flag = "ESPBoxFillTransparency",
+Tabs.Visual:Slider({
     Title = "Fill Transparency",
+    Icon = "lucide:opacity",
     Step = 0.05,
-    Value = { Min = 0, Max = 1, Default = 0.3 },
+    Value = {Min = 0, Max = 1, Default = 0.3},
     Callback = function(v)
         Settings.ESP.BoxFillTransparency = v
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPBoxColor",
+Tabs.Visual:Colorpicker({
     Title = "Box Color",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(c)
         Settings.ESP.BoxColor = c
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPBoxFillColor",
+Tabs.Visual:Colorpicker({
     Title = "Fill Color",
+    Icon = "lucide:paint-bucket",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(c)
         Settings.ESP.BoxFillColor = c
     end
 })
 
-VisualTab:Space()
+Tabs.Visual:Section({Title = "Skeleton"})
 
-VisualTab:Toggle({
-    Flag = "ESPSkeleton",
+Tabs.Visual:Toggle({
     Title = "Skeleton",
-    Default = true,
+    Icon = "lucide:bone",
+    Value = true,
     Callback = function(v)
         Settings.ESP.Skeleton = v
     end
 })
 
-VisualTab:Slider({
-    Flag = "ESPSkeletonThickness",
+Tabs.Visual:Slider({
     Title = "Skeleton Thickness",
+    Icon = "lucide:minus",
     Step = 0.5,
-    Value = { Min = 0.5, Max = 5, Default = 1 },
+    Value = {Min = 0.5, Max = 5, Default = 1},
     Callback = function(v)
         Settings.ESP.SkeletonThickness = v
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPSkeletonColor",
+Tabs.Visual:Colorpicker({
     Title = "Skeleton Color",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(200, 200, 200),
     Callback = function(c)
         Settings.ESP.SkeletonColor = c
     end
 })
 
-VisualTab:Space()
+Tabs.Visual:Section({Title = "Health Bar"})
 
-VisualTab:Toggle({
-    Flag = "ESPHealthBar",
+Tabs.Visual:Toggle({
     Title = "Health Bar",
-    Default = true,
+    Icon = "lucide:heart",
+    Value = true,
     Callback = function(v)
         Settings.ESP.HealthBar = v
     end
 })
 
-VisualTab:Dropdown({
-    Flag = "ESPHealthBarPosition",
+Tabs.Visual:Dropdown({
     Title = "Health Bar Position",
-    Values = { "Left", "Right" },
+    Icon = "lucide:move",
+    Values = {"Left", "Right"},
     Value = "Left",
     Callback = function(v)
         Settings.ESP.HealthBarPosition = v
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPHealthBarColorLow",
+Tabs.Visual:Colorpicker({
     Title = "Health Color (Low)",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(255, 0, 0),
     Callback = function(c)
         Settings.ESP.HealthBarColorLow = c
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPHealthBarColorHigh",
+Tabs.Visual:Colorpicker({
     Title = "Health Color (High)",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(0, 255, 0),
     Callback = function(c)
         Settings.ESP.HealthBarColorHigh = c
     end
 })
 
-VisualTab:Space()
+Tabs.Visual:Section({Title = "Info"})
 
-VisualTab:Toggle({
-    Flag = "ESPName",
+Tabs.Visual:Toggle({
     Title = "Name",
-    Default = true,
+    Icon = "lucide:type",
+    Value = true,
     Callback = function(v)
         Settings.ESP.Name = v
     end
 })
 
-VisualTab:Toggle({
-    Flag = "ESPShowHealthText",
+Tabs.Visual:Toggle({
     Title = "Show Health in Name",
-    Default = false,
+    Icon = "lucide:heart-pulse",
+    Value = false,
     Callback = function(v)
         Settings.ESP.ShowHealthText = v
     end
 })
 
-VisualTab:Toggle({
-    Flag = "ESPShowMaxHealth",
+Tabs.Visual:Toggle({
     Title = "Show Max Health",
-    Default = false,
+    Icon = "lucide:heart-pulse",
+    Value = false,
     Callback = function(v)
         Settings.ESP.ShowMaxHealth = v
     end
 })
 
-VisualTab:Slider({
-    Flag = "ESPNameSize",
+Tabs.Visual:Slider({
     Title = "Name Size",
+    Icon = "lucide:text",
     Step = 1,
-    Value = { Min = 8, Max = 24, Default = 14 },
+    Value = {Min = 8, Max = 24, Default = 14},
     Callback = function(v)
         Settings.ESP.NameSize = v
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPNameColor",
+Tabs.Visual:Colorpicker({
     Title = "Name Color",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(c)
         Settings.ESP.NameColor = c
     end
 })
 
-VisualTab:Space()
-
-VisualTab:Toggle({
-    Flag = "ESPDistance",
+Tabs.Visual:Toggle({
     Title = "Distance",
-    Default = true,
+    Icon = "lucide:ruler",
+    Value = true,
     Callback = function(v)
         Settings.ESP.Distance = v
     end
 })
 
-VisualTab:Slider({
-    Flag = "ESPDistanceSize",
+Tabs.Visual:Slider({
     Title = "Distance Size",
+    Icon = "lucide:text",
     Step = 1,
-    Value = { Min = 8, Max = 24, Default = 13 },
+    Value = {Min = 8, Max = 24, Default = 13},
     Callback = function(v)
         Settings.ESP.DistanceSize = v
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPDistanceColor",
+Tabs.Visual:Colorpicker({
     Title = "Distance Color",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(0, 255, 255),
     Callback = function(c)
         Settings.ESP.DistanceColor = c
     end
 })
 
-VisualTab:Space()
-
-VisualTab:Toggle({
-    Flag = "ESPTool",
+Tabs.Visual:Toggle({
     Title = "Tool",
-    Default = true,
+    Icon = "lucide:wrench",
+    Value = true,
     Callback = function(v)
         Settings.ESP.Tool = v
     end
 })
 
-VisualTab:Slider({
-    Flag = "ESPToolSize",
+Tabs.Visual:Slider({
     Title = "Tool Size",
+    Icon = "lucide:text",
     Step = 1,
-    Value = { Min = 8, Max = 24, Default = 13 },
+    Value = {Min = 8, Max = 24, Default = 13},
     Callback = function(v)
         Settings.ESP.ToolSize = v
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPToolColor",
+Tabs.Visual:Colorpicker({
     Title = "Tool Color",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(255, 255, 0),
     Callback = function(c)
         Settings.ESP.ToolColor = c
     end
 })
 
-VisualTab:Space()
-
-VisualTab:Toggle({
-    Flag = "ESPTracer",
+Tabs.Visual:Toggle({
     Title = "Tracer",
-    Default = true,
+    Icon = "lucide:move-right",
+    Value = true,
     Callback = function(v)
         Settings.ESP.Tracer = v
     end
 })
 
-VisualTab:Dropdown({
-    Flag = "ESPTracerOrigin",
+Tabs.Visual:Dropdown({
     Title = "Tracer Origin",
-    Values = { "Bottom", "Top", "Center", "Mouse" },
+    Icon = "lucide:move",
+    Values = {"Bottom", "Top", "Center", "Mouse"},
     Value = "Bottom",
     Callback = function(v)
         Settings.ESP.TracerOrigin = v
     end
 })
 
-VisualTab:Slider({
-    Flag = "ESPTracerThickness",
+Tabs.Visual:Slider({
     Title = "Tracer Thickness",
+    Icon = "lucide:minus",
     Step = 0.5,
-    Value = { Min = 0.5, Max = 5, Default = 1.5 },
+    Value = {Min = 0.5, Max = 5, Default = 1.5},
     Callback = function(v)
         Settings.ESP.TracerThickness = v
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ESPTracerColor",
+Tabs.Visual:Colorpicker({
     Title = "Tracer Color",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(c)
         Settings.ESP.TracerColor = c
     end
 })
 
-VisualTab:Space()
+Tabs.Visual:Section({Title = "Chams"})
 
-VisualTab:Toggle({
-    Flag = "ChamsToggle",
+Tabs.Visual:Toggle({
     Title = "Chams",
     Desc = "Highlight players through walls",
-    Default = false,
+    Icon = "lucide:sparkles",
+    Value = false,
     Callback = function(v)
         Settings.Chams.Enabled = v
         if v then
@@ -1263,9 +1269,9 @@ VisualTab:Toggle({
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ChamsFillColor",
+Tabs.Visual:Colorpicker({
     Title = "Fill Color",
+    Icon = "lucide:paint-bucket",
     Default = Color3.fromRGB(255, 0, 0),
     Callback = function(c)
         Settings.Chams.FillColor = c
@@ -1273,9 +1279,9 @@ VisualTab:Colorpicker({
     end
 })
 
-VisualTab:Colorpicker({
-    Flag = "ChamsOutlineColor",
+Tabs.Visual:Colorpicker({
     Title = "Outline Color",
+    Icon = "lucide:palette",
     Default = Color3.fromRGB(255, 255, 255),
     Callback = function(c)
         Settings.Chams.OutlineColor = c
@@ -1283,32 +1289,32 @@ VisualTab:Colorpicker({
     end
 })
 
-VisualTab:Slider({
-    Flag = "ChamsFillTransparency",
+Tabs.Visual:Slider({
     Title = "Fill Transparency",
+    Icon = "lucide:opacity",
     Step = 0.05,
-    Value = { Min = 0, Max = 1, Default = 0.5 },
+    Value = {Min = 0, Max = 1, Default = 0.5},
     Callback = function(v)
         Settings.Chams.FillTransparency = v
         UpdateAllChams()
     end
 })
 
-VisualTab:Slider({
-    Flag = "ChamsOutlineTransparency",
+Tabs.Visual:Slider({
     Title = "Outline Transparency",
+    Icon = "lucide:opacity",
     Step = 0.05,
-    Value = { Min = 0, Max = 1, Default = 0 },
+    Value = {Min = 0, Max = 1, Default = 0},
     Callback = function(v)
         Settings.Chams.OutlineTransparency = v
         UpdateAllChams()
     end
 })
 
-VisualTab:Dropdown({
-    Flag = "ChamsDepthMode",
+Tabs.Visual:Dropdown({
     Title = "Depth Mode",
-    Values = { "AlwaysOnTop", "Occluded" },
+    Icon = "lucide:layers",
+    Values = {"AlwaysOnTop", "Occluded"},
     Value = "AlwaysOnTop",
     Callback = function(v)
         Settings.Chams.DepthMode = v
@@ -1316,87 +1322,92 @@ VisualTab:Dropdown({
     end
 })
 
-VisualTab:Space()
+Tabs.Visual:Section({Title = "Limits"})
 
-VisualTab:Slider({
-    Flag = "ESPMaxDistance",
+Tabs.Visual:Slider({
     Title = "Max Distance",
+    Icon = "lucide:ruler",
     Step = 10,
-    Value = { Min = 100, Max = 5000, Default = 2000 },
+    Value = {Min = 100, Max = 5000, Default = 2000},
     Callback = function(v)
         Settings.ESP.MaxDistance = v
     end
 })
 
-local MiscTab = MiscSection:Tab({
-    Title = "Misc",
-    Icon = "zap",
-    IconColor = Color3.fromHex("#FFA502"),
-})
+Tabs.Misc:Section({Title = "Movement"})
 
-MiscTab:Toggle({
-    Flag = "SpeedhackToggle",
+Tabs.Misc:Toggle({
     Title = "Speedhack",
     Desc = "Velocity method (no kick)",
-    Default = false,
+    Icon = "lucide:zap",
+    Value = false,
     Callback = function(v)
         SetSpeedhack(v)
     end
 })
 
-MiscTab:Slider({
-    Flag = "SpeedhackSpeed",
+Tabs.Misc:Slider({
     Title = "Speed",
+    Icon = "lucide:gauge",
     Step = 1,
-    Value = { Min = 20, Max = 200, Default = 80 },
+    Value = {Min = 20, Max = 200, Default = 80},
     Callback = function(v)
         Settings.Speedhack.Speed = v
     end
 })
 
-local SettingsTab = SettingsSection:Tab({
-    Title = "Settings",
-    Icon = "settings",
-    IconColor = Color3.fromHex("#747D8C"),
-})
+Tabs.Settings:Section({Title = "Config"})
 
 local ConfigManager = Window.ConfigManager
 
-SettingsTab:Input({
-    Flag = "ConfigName",
+Tabs.Settings:Input({
     Title = "Config Name",
+    Icon = "lucide:file-text",
+    Placeholder = "default",
     Value = "default",
     Callback = function(v)
         Window.CurrentConfig = ConfigManager:Config(v)
     end
 })
 
-SettingsTab:Button({
+Tabs.Settings:Button({
     Title = "Save Config",
-    Icon = "save",
+    Desc = "Save current settings to file",
+    Icon = "lucide:save",
     Callback = function()
         if Window.CurrentConfig and Window.CurrentConfig:Save() then
-            WindUI:Notify({ Title = "Config Saved", Content = "Configuration saved successfully!", Icon = "check" })
+            WindUI:Notify({
+                Title = "Config Saved",
+                Content = "Configuration saved successfully!",
+                Icon = "lucide:check",
+                Duration = 3
+            })
         end
     end
 })
 
-SettingsTab:Button({
+Tabs.Settings:Button({
     Title = "Load Config",
-    Icon = "refresh-cw",
+    Desc = "Load settings from file",
+    Icon = "lucide:refresh-cw",
     Callback = function()
         if Window.CurrentConfig and Window.CurrentConfig:Load() then
-            WindUI:Notify({ Title = "Config Loaded", Content = "Configuration loaded successfully!", Icon = "check" })
+            WindUI:Notify({
+                Title = "Config Loaded",
+                Content = "Configuration loaded successfully!",
+                Icon = "lucide:check",
+                Duration = 3
+            })
         end
     end
 })
 
-SettingsTab:Space()
+Tabs.Settings:Section({Title = "Script"})
 
-SettingsTab:Button({
+Tabs.Settings:Button({
     Title = "Unload Script",
-    Icon = "trash",
-    Color = Color3.fromHex("#FF4757"),
+    Desc = "Disconnect all connections and destroy UI",
+    Icon = "lucide:trash-2",
     Callback = function()
         for _, connection in ipairs(Connections) do
             pcall(function() connection:Disconnect() end)
@@ -1434,7 +1445,7 @@ InitChams()
 
 WindUI:Notify({
     Title = "Criminality Lite",
-    Content = "Loaded successfully! Use the open button to toggle UI.",
-    Icon = "check",
-    Duration = 5,
+    Content = "Loaded successfully! Press G to toggle menu.",
+    Icon = "lucide:check",
+    Duration = 5
 })
