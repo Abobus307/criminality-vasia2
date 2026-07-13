@@ -623,6 +623,8 @@ local Window = WindUI:CreateWindow({
     },
 })
 
+Window:SetToggleKey(Enum.KeyCode.G)
+
 local CombatSection = Window:Section({ Title = "Combat" })
 local VisualSection = Window:Section({ Title = "Visual" })
 local MiscSection = Window:Section({ Title = "Misc" })
@@ -1251,7 +1253,7 @@ InitAimbot()
 
 WindUI:Notify({
     Title = "Criminality Lite",
-    Content = "Loaded successfully! Use the open button to toggle UI.",
+    Content = "Loaded successfully!",
     Icon = "check",
     Duration = 5,
 })
