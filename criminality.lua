@@ -1859,7 +1859,7 @@ InitAimbot()
 
 WindUI:Notify({
     Title = "Criminality Lite",
-    Content = "Loaded successfully! Use the open button to toggle UI.",
+    Content = "Loaded successfully!",
     Icon = "check",
     Duration = 5,
 })
