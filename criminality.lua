@@ -67,6 +67,9 @@ local Settings = {
  Mode = "Hold",
  Active = false,
  },
+ AutoShoot = {
+ Enabled = false,
+ },
  Chams = {
  Enabled = false,
  Color = Color3.fromRGB(255, 0, 0),
@@ -83,7 +86,7 @@ local Settings = {
  Spinbot = {
  Enabled = false,
  Speed = 30,
- AutoShoot = true,
+ AutoShoot = false,
  }
 }
 
@@ -616,6 +619,23 @@ local function InitAimbot()
  table.insert(Connections, loop)
 end
 
+local AutoShootConnection = nil
+local function SetAutoShoot(enabled)
+ Settings.AutoShoot.Enabled = enabled
+ if AutoShootConnection then AutoShootConnection:Disconnect(); AutoShootConnection = nil end
+ if enabled then
+ AutoShootConnection = RunService.Heartbeat:Connect(function()
+ if not Settings.Aimbot.Enabled then return end
+ if not AimbotTarget or not AimbotTarget.Character or not IsAlive(AimbotTarget) then return end
+ local char = LocalPlayer.Character
+ if not char then return end
+ local tool = char:FindFirstChildOfClass("Tool")
+ if not tool then return end
+ pcall(function() tool:Activate() end)
+ end)
+ end
+end
+
 local SpeedConnection = nil
 local function SetSpeedhack(enabled)
  Settings.Speedhack.Enabled = enabled
@@ -655,13 +675,6 @@ local function SetSpinbot(enabled)
  if not root then return end
 
  root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(Settings.Spinbot.Speed), 0)
-
- if Settings.Spinbot.AutoShoot and SilentAimTarget then
- local tool = char:FindFirstChildOfClass("Tool")
- if tool then
- pcall(function() tool:Activate() end)
- end
- end
  end)
  end
 end
@@ -855,9 +868,21 @@ CombatTab:Toggle({
 CombatTab:Space()
 
 CombatTab:Toggle({
+ Flag = "AutoShootToggle",
+ Title = "Auto Shoot",
+ Desc = "Shoots when target in aimbot FOV",
+ Default = false,
+ Callback = function(v)
+ SetAutoShoot(v)
+ end
+})
+
+CombatTab:Space()
+
+CombatTab:Toggle({
  Flag = "SpinbotToggle",
  Title = "Spinbot",
- Desc = "Auto-spin + auto-shoot",
+ Desc = "Auto-spin",
  Default = false,
  Callback = function(v)
  SetSpinbot(v)
@@ -871,15 +896,6 @@ CombatTab:Slider({
  Value = { Min = 1, Max = 100, Default = 30 },
  Callback = function(v)
  Settings.Spinbot.Speed = v
- end
-})
-
-CombatTab:Toggle({
- Flag = "SpinbotAutoShoot",
- Title = "Auto Shoot",
- Default = true,
- Callback = function(v)
- Settings.Spinbot.AutoShoot = v
  end
 })
 
@@ -1340,6 +1356,7 @@ SettingsTab:Button({
  Color = Color3.fromHex("#FF4757"),
  Callback = function()
  for _, c in ipairs(Connections) do pcall(function() c:Disconnect() end) end
+ if AutoShootConnection then AutoShootConnection:Disconnect() end
  if SpeedConnection then SpeedConnection:Disconnect() end
  if SpinConnection then SpinConnection:Disconnect() end
  for plr, data in pairs(ESPObjects) do
