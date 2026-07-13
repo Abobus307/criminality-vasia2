@@ -16,7 +16,6 @@ local Settings = {
         HitChance = 100,
         TargetPart = "Head",
         WallCheck = true,
-        TeamCheck = false,
         ShowFOV = true,
         CheckDowned = true,
         CheckForceField = true,
@@ -31,7 +30,6 @@ local Settings = {
         Distance = true,
         Tool = true,
         Tracer = true,
-        TeamCheck = false,
         MaxDistance = 2000,
         BoxColor = Color3.fromRGB(255, 255, 255),
         SkeletonColor = Color3.fromRGB(200, 200, 200),
@@ -62,13 +60,21 @@ local Settings = {
         FOV = 200,
         TargetPart = "Head",
         WallCheck = true,
-        TeamCheck = false,
         ShowFOV = true,
         CheckDowned = true,
         CheckForceField = true,
         Key = "MB2",
         Mode = "Hold",
         Active = false,
+    },
+    Chams = {
+        Enabled = false,
+        Color = Color3.fromRGB(255, 0, 0),
+        FillTransparency = 0.5,
+        OutlineTransparency = 0,
+        FillColor = Color3.fromRGB(255, 0, 0),
+        OutlineColor = Color3.fromRGB(255, 255, 255),
+        DepthMode = "AlwaysOnTop",
     },
     Speedhack = {
         Enabled = false,
@@ -82,6 +88,7 @@ local Settings = {
 }
 
 local ESPObjects = {}
+local ChamsObjects = {}
 local Connections = {}
 local SilentAimTarget = nil
 local AimbotTarget = nil
@@ -115,8 +122,6 @@ local function HasForceField(p)
     local c = GetChar(p)
     return c and c:FindFirstChildOfClass("ForceField") ~= nil
 end
-local function IsTeam(p) return p.Team == LocalPlayer.Team end
-
 local function IsVisible(targetPart)
     if not targetPart then return false end
     local origin = Camera.CFrame.Position
@@ -141,7 +146,6 @@ local function GetClosestPlayer(cfg)
 
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr == LocalPlayer then continue end
-        if cfg.TeamCheck and IsTeam(plr) then continue end
         if not IsAlive(plr) then continue end
         if cfg.CheckDowned and IsDowned(plr) then continue end
         if cfg.CheckForceField and HasForceField(plr) then continue end
@@ -180,6 +184,46 @@ local function HideAllESP(data)
     end
 end
 
+
+local function RemoveChams(plr)
+    if ChamsObjects[plr] then
+        pcall(function() ChamsObjects[plr]:Destroy() end)
+        ChamsObjects[plr] = nil
+    end
+end
+
+local function ApplyChams(plr)
+    if not Settings.Chams.Enabled then
+        RemoveChams(plr)
+        return
+    end
+    local char = GetChar(plr)
+    if not char then
+        RemoveChams(plr)
+        return
+    end
+    local highlight = ChamsObjects[plr]
+    if not highlight then
+        highlight = Instance.new("Highlight")
+        highlight.Name = "CL_Chams"
+        ChamsObjects[plr] = highlight
+    end
+    highlight.Adornee = char
+    highlight.FillColor = Settings.Chams.FillColor
+    highlight.OutlineColor = Settings.Chams.OutlineColor
+    highlight.FillTransparency = Settings.Chams.FillTransparency
+    highlight.OutlineTransparency = Settings.Chams.OutlineTransparency
+    highlight.DepthMode = Settings.Chams.DepthMode == "AlwaysOnTop" and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
+    highlight.Parent = game.CoreGui
+end
+
+local function UpdateAllChams()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            ApplyChams(plr)
+        end
+    end
+end
 local function InitESP()
     local conn = RunService.RenderStepped:Connect(function()
         if not Settings.ESP.Enabled then
@@ -198,11 +242,6 @@ local function InitESP()
             local head = char and char:FindFirstChild("Head")
 
             if not char or not root or not hum or hum.Health <= 0 then
-                if ESPObjects[plr] then HideAllESP(ESPObjects[plr]) end
-                continue
-            end
-
-            if Settings.ESP.TeamCheck and IsTeam(plr) then
                 if ESPObjects[plr] then HideAllESP(ESPObjects[plr]) end
                 continue
             end
@@ -410,9 +449,26 @@ local function InitESP()
                 for _, line in pairs(data.Skeleton) do line.Visible = false end
             end
         end
+        if Settings.Chams.Enabled then
+            UpdateAllChams()
+        else
+            for plr, _ in pairs(ChamsObjects) do
+                if not GetChar(plr) then
+                    RemoveChams(plr)
+                end
+            end
+        end
+    end)
+
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        if Settings.Chams.Enabled then
+            UpdateAllChams()
+        end
     end)
 
     Players.PlayerRemoving:Connect(function(plr)
+        RemoveChams(plr)
         if ESPObjects[plr] then
             local d = ESPObjects[plr]
             for k, v in pairs(d) do
@@ -695,15 +751,6 @@ CombatTab:Toggle({
 })
 
 CombatTab:Toggle({
-    Flag = "SilentAimTeamCheck",
-    Title = "Team Check",
-    Default = false,
-    Callback = function(v)
-        Settings.SilentAim.TeamCheck = v
-    end
-})
-
-CombatTab:Toggle({
     Flag = "SilentAimDowned",
     Title = "Ignore Downed",
     Default = true,
@@ -799,15 +846,6 @@ CombatTab:Toggle({
     Default = true,
     Callback = function(v)
         Settings.Aimbot.WallCheck = v
-    end
-})
-
-CombatTab:Toggle({
-    Flag = "AimbotTeamCheck",
-    Title = "Aimbot Team Check",
-    Default = false,
-    Callback = function(v)
-        Settings.Aimbot.TeamCheck = v
     end
 })
 
@@ -1143,13 +1181,69 @@ VisualTab:Colorpicker({
 VisualTab:Space()
 
 VisualTab:Toggle({
-    Flag = "ESPTeamCheck",
-    Title = "Team Check",
+    Flag = "ChamsToggle",
+    Title = "Chams",
+    Desc = "Highlight players through walls",
     Default = false,
     Callback = function(v)
-        Settings.ESP.TeamCheck = v
+        Settings.Chams.Enabled = v
+        if not v then
+            for plr, _ in pairs(ChamsObjects) do
+                RemoveChams(plr)
+            end
+        end
     end
 })
+
+VisualTab:Colorpicker({
+    Flag = "ChamsFillColor",
+    Title = "Fill Color",
+    Default = Color3.fromRGB(255, 0, 0),
+    Callback = function(c)
+        Settings.Chams.FillColor = c
+    end
+})
+
+VisualTab:Colorpicker({
+    Flag = "ChamsOutlineColor",
+    Title = "Outline Color",
+    Default = Color3.fromRGB(255, 255, 255),
+    Callback = function(c)
+        Settings.Chams.OutlineColor = c
+    end
+})
+
+VisualTab:Slider({
+    Flag = "ChamsFillTransparency",
+    Title = "Fill Transparency",
+    Step = 0.05,
+    Value = { Min = 0, Max = 1, Default = 0.5 },
+    Callback = function(v)
+        Settings.Chams.FillTransparency = v
+    end
+})
+
+VisualTab:Slider({
+    Flag = "ChamsOutlineTransparency",
+    Title = "Outline Transparency",
+    Step = 0.05,
+    Value = { Min = 0, Max = 1, Default = 0 },
+    Callback = function(v)
+        Settings.Chams.OutlineTransparency = v
+    end
+})
+
+VisualTab:Dropdown({
+    Flag = "ChamsDepthMode",
+    Title = "Depth Mode",
+    Values = { "AlwaysOnTop", "Occluded" },
+    Value = "AlwaysOnTop",
+    Callback = function(v)
+        Settings.Chams.DepthMode = v
+    end
+})
+
+VisualTab:Space()
 
 VisualTab:Slider({
     Flag = "ESPMaxDistance",
@@ -1243,6 +1337,9 @@ SettingsTab:Button({
                 end
             end
         end
+        for plr, _ in pairs(ChamsObjects) do
+            RemoveChams(plr)
+        end
         Window:Destroy()
     end
 })
@@ -1253,7 +1350,7 @@ InitAimbot()
 
 WindUI:Notify({
     Title = "Criminality Lite",
-    Content = "Loaded successfully!",
+    Content = "Loaded successfully! Use the open button to toggle UI.",
     Icon = "check",
     Duration = 5,
 })
