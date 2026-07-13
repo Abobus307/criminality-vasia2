@@ -54,8 +54,6 @@ local Settings = {
     },
     Aimbot = {
         Enabled = false,
-        Smoothness = 0.15,
-        Prediction = 0.165,
         FOV = 200,
         TargetPart = "Head",
         WallCheck = true,
@@ -65,6 +63,9 @@ local Settings = {
         Key = "MB2",
         Mode = "Hold",
         Active = false,
+        PredictMovement = true,
+        PredictionVelocity = 16,
+        NotifyTarget = true,
     },
     AutoShoot = {
         Enabled = false,
@@ -652,12 +653,55 @@ local function InitSilentAim()
     end
 end
 
+-- ==================== AIMBOT (FEMBOYHUB AIMLOCK) ====================
 local function InitAimbot()
     local fovCircle = NewDrawing("Circle", {Thickness = 1.5, Filled = false, Transparency = 0.5, Visible = false, Color = Color3.fromRGB(255, 255, 255), NumSides = 64})
     Settings.Aimbot.FOVCircle = fovCircle
 
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    local function GetNearestTarget()
+        local closest = nil
+        local shortest = math.huge
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            local skip = false
+            if player == LocalPlayer then skip = true end
+            if not skip and not IsAlive(player) then skip = true end
+            if not skip and Settings.Aimbot.CheckDowned and IsDowned(player) then skip = true end
+            if not skip and Settings.Aimbot.CheckForceField and HasForceField(player) then skip = true end
+
+            if not skip then
+                local character = GetCharacter(player)
+                if not character then skip = true end
+                if not skip then
+                    local part = character:FindFirstChild(Settings.Aimbot.TargetPart)
+                    if not part then skip = true end
+                    if not skip then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                        if not onScreen then skip = true end
+                        if not skip then
+                            local distance2D = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                            if distance2D > Settings.Aimbot.FOV then skip = true end
+                            if not skip and Settings.Aimbot.WallCheck and not IsVisible(part) then skip = true end
+                            if not skip then
+                                local dist3D = GetDistanceTo(part.Position)
+                                if dist3D < shortest then
+                                    closest = player
+                                    shortest = dist3D
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return closest
+    end
+
     local inputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
+        if not Settings.Aimbot.Enabled then return end
         local key = Settings.Aimbot.Key
         local match = false
         if key == "MB1" and input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -672,6 +716,17 @@ local function InitAimbot()
                 Settings.Aimbot.Active = true
             else
                 Settings.Aimbot.Active = not Settings.Aimbot.Active
+            end
+            if Settings.Aimbot.Active then
+                AimbotTarget = GetNearestTarget()
+                if AimbotTarget and Settings.Aimbot.NotifyTarget then
+                    WindUI:Notify({
+                        Title = "Aimlock Target",
+                        Content = "Locked onto: " .. tostring(AimbotTarget.Name),
+                        Icon = "lucide:target",
+                        Duration = 3
+                    })
+                end
             end
         end
     end)
@@ -698,32 +753,28 @@ local function InitAimbot()
         fovCircle.Visible = Settings.Aimbot.Enabled and Settings.Aimbot.ShowFOV
         if fovCircle.Visible then
             fovCircle.Radius = Settings.Aimbot.FOV
-            fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            fovCircle.Position = center
         end
 
         if not Settings.Aimbot.Enabled or not Settings.Aimbot.Active then
-            AimbotTarget = nil
             return
         end
 
         if not AimbotTarget or not AimbotTarget.Character or not IsAlive(AimbotTarget) or
             (Settings.Aimbot.CheckDowned and IsDowned(AimbotTarget)) or
             (Settings.Aimbot.CheckForceField and HasForceField(AimbotTarget)) then
-            AimbotTarget = GetClosestPlayer(Settings.Aimbot)
+            AimbotTarget = nil
+            return
         end
 
         if AimbotTarget and AimbotTarget.Character then
             local part = AimbotTarget.Character:FindFirstChild(Settings.Aimbot.TargetPart)
             if part then
                 local aimPos = part.Position
-                local hrp = AimbotTarget.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    aimPos = aimPos + (hrp.Velocity * Settings.Aimbot.Prediction)
+                if Settings.Aimbot.PredictMovement then
+                    aimPos = aimPos + part.Velocity / Settings.Aimbot.PredictionVelocity
                 end
-                local current = Camera.CFrame
-                local target = CFrame.new(current.Position, aimPos)
-                local smooth = math.clamp(Settings.Aimbot.Smoothness, 0.01, 1)
-                Camera.CFrame = current:Lerp(target, smooth)
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPos)
             end
         end
     end)
@@ -732,6 +783,7 @@ local function InitAimbot()
     table.insert(Connections, inputEnded)
     table.insert(Connections, connection)
 end
+-- =====================================================================
 
 local function SetAutoShoot(enabled)
     Settings.AutoShoot.Enabled = enabled
@@ -885,11 +937,11 @@ Tabs.Combat:Toggle({
     end
 })
 
-Tabs.Combat:Section({Title = "Aimbot"})
+Tabs.Combat:Section({Title = "Aimbot (FemboyHub Aimlock)"})
 
 Tabs.Combat:Toggle({
-    Title = "Aimbot",
-    Desc = "Smooth aim with prediction",
+    Title = "Aimlock",
+    Desc = "Smooth camera snap with prediction",
     Icon = "lucide:target",
     Value = false,
     Callback = function(v)
@@ -898,7 +950,7 @@ Tabs.Combat:Toggle({
 })
 
 Tabs.Combat:Toggle({
-    Title = "Show Aimbot FOV",
+    Title = "Show Aimlock FOV",
     Icon = "lucide:circle",
     Value = true,
     Callback = function(v)
@@ -907,7 +959,7 @@ Tabs.Combat:Toggle({
 })
 
 Tabs.Combat:Slider({
-    Title = "Aimbot FOV",
+    Title = "Aimlock FOV",
     Icon = "lucide:scan",
     Step = 1,
     Value = {Min = 10, Max = 500, Default = 200},
@@ -916,28 +968,27 @@ Tabs.Combat:Slider({
     end
 })
 
-Tabs.Combat:Slider({
-    Title = "Smoothness",
+Tabs.Combat:Toggle({
+    Title = "Predict Movement",
     Icon = "lucide:activity",
-    Step = 0.01,
-    Value = {Min = 0.01, Max = 1, Default = 0.15},
+    Value = true,
     Callback = function(v)
-        Settings.Aimbot.Smoothness = v
+        Settings.Aimbot.PredictMovement = v
     end
 })
 
 Tabs.Combat:Slider({
-    Title = "Prediction",
+    Title = "Prediction Velocity",
     Icon = "lucide:timer",
-    Step = 0.001,
-    Value = {Min = 0, Max = 0.5, Default = 0.165},
+    Step = 1,
+    Value = {Min = 1, Max = 50, Default = 16},
     Callback = function(v)
-        Settings.Aimbot.Prediction = v
+        Settings.Aimbot.PredictionVelocity = v
     end
 })
 
 Tabs.Combat:Dropdown({
-    Title = "Aimbot Target Part",
+    Title = "Aimlock Target Part",
     Icon = "lucide:target",
     Values = {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso"},
     Value = "Head",
@@ -947,7 +998,7 @@ Tabs.Combat:Dropdown({
 })
 
 Tabs.Combat:Dropdown({
-    Title = "Aimbot Key",
+    Title = "Aimlock Key",
     Icon = "lucide:keyboard",
     Values = {"MB1", "MB2", "Q", "E", "F", "X", "Z", "C"},
     Value = "MB2",
@@ -957,7 +1008,7 @@ Tabs.Combat:Dropdown({
 })
 
 Tabs.Combat:Dropdown({
-    Title = "Aimbot Mode",
+    Title = "Aimlock Mode",
     Icon = "lucide:toggle-left",
     Values = {"Hold", "Toggle"},
     Value = "Hold",
@@ -967,7 +1018,7 @@ Tabs.Combat:Dropdown({
 })
 
 Tabs.Combat:Toggle({
-    Title = "Aimbot Wall Check",
+    Title = "Aimlock Wall Check",
     Icon = "lucide:brick-wall",
     Value = true,
     Callback = function(v)
@@ -975,11 +1026,20 @@ Tabs.Combat:Toggle({
     end
 })
 
+Tabs.Combat:Toggle({
+    Title = "Notify Target",
+    Icon = "lucide:bell",
+    Value = true,
+    Callback = function(v)
+        Settings.Aimbot.NotifyTarget = v
+    end
+})
+
 Tabs.Combat:Section({Title = "Auto Features"})
 
 Tabs.Combat:Toggle({
     Title = "Auto Shoot",
-    Desc = "Shoots when target in aimbot FOV",
+    Desc = "Shoots when target in aimlock FOV",
     Icon = "lucide:flame",
     Value = false,
     Callback = function(v)
