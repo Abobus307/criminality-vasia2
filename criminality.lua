@@ -23,37 +23,24 @@ local Settings = {
     },
     ESP = {
         Enabled = false,
-        CornerBox = true,
-        BoxOutline = true,
-        Skeleton = true,
-        HealthBar = true,
+        Chams = true,
+        ChamsColor = Color3.fromRGB(255, 0, 0),
+        ChamsOutlineColor = Color3.fromRGB(0, 0, 0),
+        ChamsFillTransparency = 0.5,
+        ChamsOutlineTransparency = 0,
         Name = true,
-        Distance = true,
-        Tool = true,
-        Tracer = true,
-        TeamCheck = false,
-        MaxDistance = 2000,
-        BoxColor = Color3.fromRGB(255, 255, 255),
-        SkeletonColor = Color3.fromRGB(200, 200, 200),
-        TracerColor = Color3.fromRGB(255, 255, 255),
         NameColor = Color3.fromRGB(255, 255, 255),
-        HealthBarColorLow = Color3.fromRGB(255, 0, 0),
-        HealthBarColorHigh = Color3.fromRGB(0, 255, 0),
-        DistanceColor = Color3.fromRGB(0, 255, 255),
-        ToolColor = Color3.fromRGB(255, 255, 0),
-        BoxThickness = 1.5,
-        SkeletonThickness = 1,
-        TracerThickness = 1.5,
         NameSize = 14,
-        DistanceSize = 13,
-        ToolSize = 13,
-        TracerOrigin = "Bottom",
         ShowHealthText = false,
         ShowMaxHealth = false,
-        HealthBarPosition = "Left",
-        BoxFilled = false,
-        BoxFillTransparency = 0.3,
-        BoxFillColor = Color3.fromRGB(255, 255, 255),
+        Distance = true,
+        Tool = true,
+        TeamCheck = false,
+        MaxDistance = 2000,
+        DistanceColor = Color3.fromRGB(0, 255, 255),
+        ToolColor = Color3.fromRGB(255, 255, 0),
+        DistanceSize = 13,
+        ToolSize = 13,
     },
     Aimbot = {
         Enabled = false,
@@ -169,14 +156,14 @@ local function NewDrawing(t, props)
 end
 
 local function HideAllESP(data)
-    for k, v in pairs(data) do
-        if k == "Corner" or k == "CornerOutline" or k == "Skeleton" then
-            for _, line in pairs(v) do line.Visible = false end
-        elseif k == "BoxFill" then
-            v.Visible = false
-        else
-            v.Visible = false
-        end
+    if data.Name then data.Name.Visible = false end
+    if data.Distance then data.Distance.Visible = false end
+    if data.Tool then data.Tool.Visible = false end
+    if data.Chams then
+        pcall(function()
+            data.Chams.Enabled = false
+            data.Chams.Adornee = nil
+        end)
     end
 end
 
@@ -214,96 +201,44 @@ local function InitESP()
             end
 
             if not ESPObjects[plr] then
+                local highlight = Instance.new("Highlight")
+                highlight.Name = "ChamsESP"
+                highlight.FillColor = Settings.ESP.ChamsColor
+                highlight.OutlineColor = Settings.ESP.ChamsOutlineColor
+                highlight.FillTransparency = Settings.ESP.ChamsFillTransparency
+                highlight.OutlineTransparency = Settings.ESP.ChamsOutlineTransparency
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                highlight.Enabled = false
+                highlight.Parent = char
+
                 ESPObjects[plr] = {
-                    Corner = {},
-                    CornerOutline = {},
-                    BoxFill = NewDrawing("Square", {Filled = true, Transparency = Settings.ESP.BoxFillTransparency, Visible = false}),
-                    HealthBar = NewDrawing("Line", {Thickness = 2, Visible = false}),
-                    HealthBarOutline = NewDrawing("Line", {Thickness = 4, Color = Color3.new(0, 0, 0), Visible = false}),
-                    Name = NewDrawing("Text", {Size = Settings.ESP.NameSize, Center = true, Outline = true, Font = 2, Visible = false}),
+                    Chams = highlight,
+                    Name = NewDrawing("Text", {Size = Settings.ESP.NameSize, Center = true, Outline = true, Font = 2, Color = Settings.ESP.NameColor, Visible = false}),
                     Distance = NewDrawing("Text", {Size = Settings.ESP.DistanceSize, Center = true, Outline = true, Font = 2, Color = Settings.ESP.DistanceColor, Visible = false}),
                     Tool = NewDrawing("Text", {Size = Settings.ESP.ToolSize, Center = true, Outline = true, Font = 2, Color = Settings.ESP.ToolColor, Visible = false}),
-                    Tracer = NewDrawing("Line", {Thickness = Settings.ESP.TracerThickness, Visible = false}),
-                    Skeleton = {},
                 }
-                for i = 1, 8 do
-                    ESPObjects[plr].Corner[i] = NewDrawing("Line", {Thickness = Settings.ESP.BoxThickness, Visible = false})
-                    ESPObjects[plr].CornerOutline[i] = NewDrawing("Line", {Thickness = Settings.ESP.BoxThickness + 2, Color = Color3.new(0, 0, 0), Visible = false})
-                end
-                for i = 1, 20 do
-                    ESPObjects[plr].Skeleton[i] = NewDrawing("Line", {Thickness = Settings.ESP.SkeletonThickness, Visible = false})
-                end
             end
 
             local data = ESPObjects[plr]
             local sp, onScreen = Camera:WorldToViewportPoint(root.Position)
             local headPos = head and Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-            local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
 
             if not onScreen or not headPos then
                 HideAllESP(data)
                 continue
             end
 
-            local h = math.abs(legPos.Y - headPos.Y)
-            local w = h / 2
-            local pos = Vector2.new(headPos.X - w / 2, headPos.Y)
-            local color = Settings.ESP.BoxColor
-
-            if Settings.ESP.CornerBox then
-                local cs = math.min(w, h) * 0.25
-                local c, co = data.Corner, data.CornerOutline
-                local corners = {
-                    {pos, pos + Vector2.new(cs, 0)},
-                    {pos, pos + Vector2.new(0, cs)},
-                    {pos + Vector2.new(w, 0), pos + Vector2.new(w - cs, 0)},
-                    {pos + Vector2.new(w, 0), pos + Vector2.new(w, cs)},
-                    {pos + Vector2.new(0, h), pos + Vector2.new(cs, h)},
-                    {pos + Vector2.new(0, h), pos + Vector2.new(0, h - cs)},
-                    {pos + Vector2.new(w, h), pos + Vector2.new(w - cs, h)},
-                    {pos + Vector2.new(w, h), pos + Vector2.new(w, h - cs)},
-                }
-                for i = 1, 8 do
-                    c[i].From = corners[i][1]; c[i].To = corners[i][2]; c[i].Color = color; c[i].Thickness = Settings.ESP.BoxThickness; c[i].Visible = true
-                    co[i].From = corners[i][1]; co[i].To = corners[i][2]; co[i].Thickness = Settings.ESP.BoxThickness + 2; co[i].Visible = true
-                end
+            if Settings.ESP.Chams then
+                pcall(function()
+                    data.Chams.Adornee = char
+                    data.Chams.FillColor = Settings.ESP.ChamsColor
+                    data.Chams.OutlineColor = Settings.ESP.ChamsOutlineColor
+                    data.Chams.FillTransparency = Settings.ESP.ChamsFillTransparency
+                    data.Chams.OutlineTransparency = Settings.ESP.ChamsOutlineTransparency
+                    data.Chams.Enabled = true
+                end)
             else
-                for i = 1, 8 do data.Corner[i].Visible = false; data.CornerOutline[i].Visible = false end
-            end
-
-            if Settings.ESP.BoxFilled then
-                data.BoxFill.Size = Vector2.new(w, h)
-                data.BoxFill.Position = pos
-                data.BoxFill.Color = Settings.ESP.BoxFillColor
-                data.BoxFill.Transparency = Settings.ESP.BoxFillTransparency
-                data.BoxFill.Visible = true
-            else
-                data.BoxFill.Visible = false
-            end
-
-            if Settings.ESP.HealthBar then
-                local hp = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                local bh = h * hp
-                local bx, by
-                if Settings.ESP.HealthBarPosition == "Left" then
-                    bx = pos.X - 8
-                    by = pos.Y
-                elseif Settings.ESP.HealthBarPosition == "Right" then
-                    bx = pos.X + w + 8
-                    by = pos.Y
-                else
-                    bx = pos.X - 8
-                    by = pos.Y
-                end
-                data.HealthBarOutline.From = Vector2.new(bx, by)
-                data.HealthBarOutline.To = Vector2.new(bx, by + h)
-                data.HealthBarOutline.Visible = true
-                data.HealthBar.From = Vector2.new(bx, by + h - bh)
-                data.HealthBar.To = Vector2.new(bx, by + h)
-                data.HealthBar.Color = Settings.ESP.HealthBarColorLow:Lerp(Settings.ESP.HealthBarColorHigh, hp)
-                data.HealthBar.Visible = true
-            else
-                data.HealthBar.Visible = false; data.HealthBarOutline.Visible = false
+                pcall(function() data.Chams.Enabled = false end)
             end
 
             if Settings.ESP.Name then
@@ -316,7 +251,7 @@ local function InitESP()
                     end
                 end
                 data.Name.Text = nameText
-                data.Name.Position = Vector2.new(pos.X + w / 2, pos.Y - 20)
+                data.Name.Position = Vector2.new(sp.X, headPos.Y - 20)
                 data.Name.Color = Settings.ESP.NameColor
                 data.Name.Size = Settings.ESP.NameSize
                 data.Name.Visible = true
@@ -326,7 +261,7 @@ local function InitESP()
 
             if Settings.ESP.Distance then
                 data.Distance.Text = string.format("[%dm]", math.floor(dist))
-                data.Distance.Position = Vector2.new(pos.X + w / 2, pos.Y + h + 2)
+                data.Distance.Position = Vector2.new(sp.X, sp.Y + 20)
                 data.Distance.Color = Settings.ESP.DistanceColor
                 data.Distance.Size = Settings.ESP.DistanceSize
                 data.Distance.Visible = true
@@ -338,7 +273,7 @@ local function InitESP()
                 local tool = char:FindFirstChildOfClass("Tool")
                 if tool then
                     data.Tool.Text = string.format("[%s]", tool.Name)
-                    data.Tool.Position = Vector2.new(pos.X + w / 2, pos.Y + h + 16)
+                    data.Tool.Position = Vector2.new(sp.X, sp.Y + 34)
                     data.Tool.Color = Settings.ESP.ToolColor
                     data.Tool.Size = Settings.ESP.ToolSize
                     data.Tool.Visible = true
@@ -348,80 +283,16 @@ local function InitESP()
             else
                 data.Tool.Visible = false
             end
-
-            if Settings.ESP.Tracer then
-                local origin
-                if Settings.ESP.TracerOrigin == "Bottom" then
-                    origin = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                elseif Settings.ESP.TracerOrigin == "Top" then
-                    origin = Vector2.new(Camera.ViewportSize.X / 2, 0)
-                elseif Settings.ESP.TracerOrigin == "Center" then
-                    origin = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                elseif Settings.ESP.TracerOrigin == "Mouse" then
-                    origin = UserInputService:GetMouseLocation()
-                else
-                    origin = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                end
-                data.Tracer.From = origin
-                data.Tracer.To = Vector2.new(sp.X, sp.Y)
-                data.Tracer.Color = Settings.ESP.TracerColor
-                data.Tracer.Thickness = Settings.ESP.TracerThickness
-                data.Tracer.Visible = true
-            else
-                data.Tracer.Visible = false
-            end
-
-            if Settings.ESP.Skeleton then
-                local isR15 = char:FindFirstChild("UpperTorso") ~= nil
-                local map = isR15 and {
-                    {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
-                    {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
-                    {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-                    {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
-                    {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
-                } or {
-                    {"Head", "Torso"}, {"Torso", "Left Arm"}, {"Left Arm", "Left Leg"},
-                    {"Torso", "Right Arm"}, {"Right Arm", "Right Leg"},
-                    {"Torso", "Left Leg"}, {"Torso", "Right Leg"},
-                }
-
-                local idx = 1
-                for _, pair in ipairs(map) do
-                    local p1, p2 = char:FindFirstChild(pair[1]), char:FindFirstChild(pair[2])
-                    local line = data.Skeleton[idx]
-                    if line and p1 and p2 then
-                        local s1, v1 = Camera:WorldToViewportPoint(p1.Position)
-                        local s2, v2 = Camera:WorldToViewportPoint(p2.Position)
-                        if v1 and v2 then
-                            line.From = Vector2.new(s1.X, s1.Y); line.To = Vector2.new(s2.X, s2.Y)
-                            line.Color = Settings.ESP.SkeletonColor
-                            line.Thickness = Settings.ESP.SkeletonThickness
-                            line.Visible = true
-                        else
-                            line.Visible = false
-                        end
-                    elseif line then
-                        line.Visible = false
-                    end
-                    idx += 1
-                end
-                for i = idx, #data.Skeleton do if data.Skeleton[i] then data.Skeleton[i].Visible = false end end
-            else
-                for _, line in pairs(data.Skeleton) do line.Visible = false end
-            end
         end
     end)
 
     Players.PlayerRemoving:Connect(function(plr)
         if ESPObjects[plr] then
             local d = ESPObjects[plr]
-            for k, v in pairs(d) do
-                if k == "Corner" or k == "CornerOutline" or k == "Skeleton" then
-                    for _, line in pairs(v) do pcall(function() line:Remove() end) end
-                else
-                    pcall(function() v:Remove() end)
-                end
-            end
+            pcall(function() d.Chams:Destroy() end)
+            pcall(function() d.Name:Remove() end)
+            pcall(function() d.Distance:Remove() end)
+            pcall(function() d.Tool:Remove() end)
             ESPObjects[plr] = nil
         end
     end)
@@ -608,11 +479,11 @@ local function SetSpinbot(enabled)
 end
 
 local Window = WindUI:CreateWindow({
-    Title = "Criminality Lite",
+    Title = "Vasia2 Lab",
     Icon = "crosshair",
-    Folder = "CriminalityLite",
+    Folder = "Vasia2Lab",
     OpenButton = {
-        Title = "Open Criminality Lite",
+        Title = "Open Vasia2 Lab",
         Enabled = true,
         Draggable = true,
         Color = ColorSequence.new(Color3.fromHex("#FF4757"), Color3.fromHex("#FF6B81")),
@@ -857,136 +728,49 @@ VisualTab:Toggle({
 })
 
 VisualTab:Toggle({
-    Flag = "ESPCornerBox",
-    Title = "Corner Box",
+    Flag = "ESPChams",
+    Title = "Chams",
     Default = true,
     Callback = function(v)
-        Settings.ESP.CornerBox = v
-    end
-})
-
-VisualTab:Toggle({
-    Flag = "ESPBoxOutline",
-    Title = "Box Outline",
-    Default = true,
-    Callback = function(v)
-        Settings.ESP.BoxOutline = v
-    end
-})
-
-VisualTab:Toggle({
-    Flag = "ESPBoxFilled",
-    Title = "Box Fill",
-    Default = false,
-    Callback = function(v)
-        Settings.ESP.BoxFilled = v
-    end
-})
-
-VisualTab:Slider({
-    Flag = "ESPBoxThickness",
-    Title = "Box Thickness",
-    Step = 0.5,
-    Value = { Min = 0.5, Max = 5, Default = 1.5 },
-    Callback = function(v)
-        Settings.ESP.BoxThickness = v
-    end
-})
-
-VisualTab:Slider({
-    Flag = "ESPBoxFillTransparency",
-    Title = "Fill Transparency",
-    Step = 0.05,
-    Value = { Min = 0, Max = 1, Default = 0.3 },
-    Callback = function(v)
-        Settings.ESP.BoxFillTransparency = v
+        Settings.ESP.Chams = v
     end
 })
 
 VisualTab:Colorpicker({
-    Flag = "ESPBoxColor",
-    Title = "Box Color",
-    Default = Color3.fromRGB(255, 255, 255),
-    Callback = function(c)
-        Settings.ESP.BoxColor = c
-    end
-})
-
-VisualTab:Colorpicker({
-    Flag = "ESPBoxFillColor",
-    Title = "Fill Color",
-    Default = Color3.fromRGB(255, 255, 255),
-    Callback = function(c)
-        Settings.ESP.BoxFillColor = c
-    end
-})
-
-VisualTab:Space()
-
-VisualTab:Toggle({
-    Flag = "ESPSkeleton",
-    Title = "Skeleton",
-    Default = true,
-    Callback = function(v)
-        Settings.ESP.Skeleton = v
-    end
-})
-
-VisualTab:Slider({
-    Flag = "ESPSkeletonThickness",
-    Title = "Skeleton Thickness",
-    Step = 0.5,
-    Value = { Min = 0.5, Max = 5, Default = 1 },
-    Callback = function(v)
-        Settings.ESP.SkeletonThickness = v
-    end
-})
-
-VisualTab:Colorpicker({
-    Flag = "ESPSkeletonColor",
-    Title = "Skeleton Color",
-    Default = Color3.fromRGB(200, 200, 200),
-    Callback = function(c)
-        Settings.ESP.SkeletonColor = c
-    end
-})
-
-VisualTab:Space()
-
-VisualTab:Toggle({
-    Flag = "ESPHealthBar",
-    Title = "Health Bar",
-    Default = true,
-    Callback = function(v)
-        Settings.ESP.HealthBar = v
-    end
-})
-
-VisualTab:Dropdown({
-    Flag = "ESPHealthBarPosition",
-    Title = "Health Bar Position",
-    Values = { "Left", "Right" },
-    Value = "Left",
-    Callback = function(v)
-        Settings.ESP.HealthBarPosition = v
-    end
-})
-
-VisualTab:Colorpicker({
-    Flag = "ESPHealthBarColorLow",
-    Title = "Health Color (Low)",
+    Flag = "ESPChamsColor",
+    Title = "Chams Fill Color",
     Default = Color3.fromRGB(255, 0, 0),
     Callback = function(c)
-        Settings.ESP.HealthBarColorLow = c
+        Settings.ESP.ChamsColor = c
     end
 })
 
 VisualTab:Colorpicker({
-    Flag = "ESPHealthBarColorHigh",
-    Title = "Health Color (High)",
-    Default = Color3.fromRGB(0, 255, 0),
+    Flag = "ESPChamsOutlineColor",
+    Title = "Chams Outline Color",
+    Default = Color3.fromRGB(0, 0, 0),
     Callback = function(c)
-        Settings.ESP.HealthBarColorHigh = c
+        Settings.ESP.ChamsOutlineColor = c
+    end
+})
+
+VisualTab:Slider({
+    Flag = "ESPChamsFillTrans",
+    Title = "Fill Transparency",
+    Step = 0.05,
+    Value = { Min = 0, Max = 1, Default = 0.5 },
+    Callback = function(v)
+        Settings.ESP.ChamsFillTransparency = v
+    end
+})
+
+VisualTab:Slider({
+    Flag = "ESPChamsOutlineTrans",
+    Title = "Outline Transparency",
+    Step = 0.05,
+    Value = { Min = 0, Max = 1, Default = 0 },
+    Callback = function(v)
+        Settings.ESP.ChamsOutlineTransparency = v
     end
 })
 
@@ -1101,46 +885,6 @@ VisualTab:Colorpicker({
 VisualTab:Space()
 
 VisualTab:Toggle({
-    Flag = "ESPTracer",
-    Title = "Tracer",
-    Default = true,
-    Callback = function(v)
-        Settings.ESP.Tracer = v
-    end
-})
-
-VisualTab:Dropdown({
-    Flag = "ESPTracerOrigin",
-    Title = "Tracer Origin",
-    Values = { "Bottom", "Top", "Center", "Mouse" },
-    Value = "Bottom",
-    Callback = function(v)
-        Settings.ESP.TracerOrigin = v
-    end
-})
-
-VisualTab:Slider({
-    Flag = "ESPTracerThickness",
-    Title = "Tracer Thickness",
-    Step = 0.5,
-    Value = { Min = 0.5, Max = 5, Default = 1.5 },
-    Callback = function(v)
-        Settings.ESP.TracerThickness = v
-    end
-})
-
-VisualTab:Colorpicker({
-    Flag = "ESPTracerColor",
-    Title = "Tracer Color",
-    Default = Color3.fromRGB(255, 255, 255),
-    Callback = function(c)
-        Settings.ESP.TracerColor = c
-    end
-})
-
-VisualTab:Space()
-
-VisualTab:Toggle({
     Flag = "ESPTeamCheck",
     Title = "Team Check",
     Default = false,
@@ -1233,13 +977,10 @@ SettingsTab:Button({
         if SpeedConnection then SpeedConnection:Disconnect() end
         if SpinConnection then SpinConnection:Disconnect() end
         for plr, data in pairs(ESPObjects) do
-            for k, v in pairs(data) do
-                if k == "Corner" or k == "CornerOutline" or k == "Skeleton" then
-                    for _, line in pairs(v) do pcall(function() line:Remove() end) end
-                else
-                    pcall(function() v:Remove() end)
-                end
-            end
+            pcall(function() data.Chams:Destroy() end)
+            pcall(function() data.Name:Remove() end)
+            pcall(function() data.Distance:Remove() end)
+            pcall(function() data.Tool:Remove() end)
         end
         Window:Destroy()
     end
@@ -1250,8 +991,8 @@ InitSilentAim()
 InitAimbot()
 
 WindUI:Notify({
-    Title = "Criminality Lite",
-    Content = "Loaded successfully! Use the open button to toggle UI.",
+    Title = "Vasia2 Lab",
+    Content = "Loaded successfully!",
     Icon = "check",
     Duration = 5,
 })
