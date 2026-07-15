@@ -5,8 +5,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Lighting = game:GetService("Lighting")
-local TextChatService = game:GetService("TextChatService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -80,69 +78,13 @@ local Settings = {
         Enabled = false,
         Speed = 30,
         AutoShoot = true,
-    },
-    MeleeAura = {
-        Enabled = false,
-        Range = 8,
-    },
-    DealerESP = {
-        Enabled = false,
-    },
-    InstantReload = {
-        Enabled = false,
-    },
-    InfiniteStamina = {
-        Enabled = false,
-    },
-    FullBright = {
-        Enabled = false,
-    },
-    ChatEnabler = {
-        Enabled = false,
-    },
-    InstantEquip = {
-        Enabled = false,
-    },
-    TriggerBot = {
-        Enabled = false,
-        TeamCheck = false,
-        CheckDowned = true,
-        CheckForceField = true,
-        Key = "MB2",
-        Method = "Hold",
-        ClickMs = 100,
-        Parts = { Head = true, HumanoidRootPart = true, LeftHand = false, RightHand = false, LeftLeg = false, RightLeg = false },
-        FriendCheck = false,
-        EnemyCheck = false,
-        FriendList = {},
-    },
-    BulletTracer = {
-        Enabled = false,
-        Color = Color3.fromRGB(255, 255, 0),
-        Thickness = 1.5,
-        Lifetime = 0.35,
     }
 }
 
 local ESPObjects = {}
-local DealerESPObjects = {}
 local Connections = {}
 local SilentAimTarget = nil
 local AimbotTarget = nil
-local MeleeAuraConnection = nil
-local InstantReloadConnection = nil
-local InfiniteStaminaConnection = nil
-local DealerESPConnection = nil
-local FullBrightConnection = nil
-local InstantEquipConnection = nil
-local TriggerBotConnection = nil
-local TriggerInputBegan = nil
-local TriggerInputEnded = nil
-local TriggerActiveState = false
-local TriggerLastClick = 0
-local BulletTracerConnection = nil
-local OriginalLightingSettings = nil
-local BulletTracerLines = {}
 
 local function GetChar(p) return p and p.Character end
 local function GetRoot(p)
@@ -174,199 +116,6 @@ local function HasForceField(p)
     return c and c:FindFirstChildOfClass("ForceField") ~= nil
 end
 local function IsTeam(p) return p.Team == LocalPlayer.Team end
-
-local function SaveLightingSettings()
-    if OriginalLightingSettings then return end
-    OriginalLightingSettings = {
-        Brightness = Lighting.Brightness,
-        Ambient = Lighting.Ambient,
-        OutdoorAmbient = Lighting.OutdoorAmbient,
-        ClockTime = Lighting.ClockTime,
-        ColorShift_Top = Lighting.ColorShift_Top,
-        ColorShift_Bottom = Lighting.ColorShift_Bottom,
-        GlobalShadows = Lighting.GlobalShadows,
-        ExposureCompensation = Lighting.ExposureCompensation,
-    }
-end
-
-local function SetFullBright(enabled)
-    Settings.FullBright.Enabled = enabled
-    if FullBrightConnection then
-        FullBrightConnection:Disconnect()
-        FullBrightConnection = nil
-    end
-
-    SaveLightingSettings()
-    if enabled then
-        FullBrightConnection = RunService.RenderStepped:Connect(function()
-            Lighting.Brightness = 2
-            Lighting.Ambient = Color3.new(1, 1, 1)
-            Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
-            Lighting.ClockTime = 12
-            Lighting.ColorShift_Top = Color3.new(1, 1, 1)
-            Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
-            Lighting.GlobalShadows = false
-            Lighting.ExposureCompensation = 0
-        end)
-    else
-        Lighting.Brightness = OriginalLightingSettings and OriginalLightingSettings.Brightness or Lighting.Brightness
-        Lighting.Ambient = OriginalLightingSettings and OriginalLightingSettings.Ambient or Lighting.Ambient
-        Lighting.OutdoorAmbient = OriginalLightingSettings and OriginalLightingSettings.OutdoorAmbient or Lighting.OutdoorAmbient
-        Lighting.ClockTime = OriginalLightingSettings and OriginalLightingSettings.ClockTime or Lighting.ClockTime
-        Lighting.ColorShift_Top = OriginalLightingSettings and OriginalLightingSettings.ColorShift_Top or Lighting.ColorShift_Top
-        Lighting.ColorShift_Bottom = OriginalLightingSettings and OriginalLightingSettings.ColorShift_Bottom or Lighting.ColorShift_Bottom
-        Lighting.GlobalShadows = OriginalLightingSettings and OriginalLightingSettings.GlobalShadows or Lighting.GlobalShadows
-        Lighting.ExposureCompensation = OriginalLightingSettings and OriginalLightingSettings.ExposureCompensation or Lighting.ExposureCompensation
-    end
-end
-
-local function SetChatEnabler(enabled)
-    Settings.ChatEnabler.Enabled = enabled
-    if enabled then
-        pcall(function()
-            TextChatService.ChatInputBarConfiguration.Enabled = true
-            TextChatService.ChatInputBarConfiguration.Visible = true
-        end)
-    end
-end
-
-local function SetInstantEquip(enabled)
-    Settings.InstantEquip.Enabled = enabled
-    if InstantEquipConnection then
-        InstantEquipConnection:Disconnect()
-        InstantEquipConnection = nil
-    end
-    if enabled then
-        InstantEquipConnection = RunService.Heartbeat:Connect(function()
-            local char = LocalPlayer.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            local backpack = LocalPlayer:FindFirstChild("Backpack")
-            if not hum or not backpack then return end
-
-            if char:FindFirstChildOfClass("Tool") then return end
-            for _, tool in ipairs(backpack:GetChildren()) do
-                if tool:IsA("Tool") then
-                    pcall(function() hum:EquipTool(tool) end)
-                    break
-                end
-            end
-        end)
-    end
-end
-
-local function SetTriggerBot(enabled)
-    Settings.TriggerBot.Enabled = enabled
-    if TriggerBotConnection then
-        TriggerBotConnection:Disconnect()
-        TriggerBotConnection = nil
-    end
-    if enabled then
-        if TriggerInputBegan then TriggerInputBegan:Disconnect(); TriggerInputBegan = nil end
-        if TriggerInputEnded then TriggerInputEnded:Disconnect(); TriggerInputEnded = nil end
-
-        TriggerInputBegan = UserInputService.InputBegan:Connect(function(input, gp)
-            if gp then return end
-            if MatchesTriggerKey(input) then
-                if Settings.TriggerBot.Method == "Hold" then
-                    TriggerActiveState = true
-                else
-                    TriggerActiveState = not TriggerActiveState
-                end
-            end
-            if Settings.TriggerBot.Method == "Click" and input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 then
-                TriggerLastClick = os.clock()
-            end
-        end)
-
-        TriggerInputEnded = UserInputService.InputEnded:Connect(function(input)
-            if MatchesTriggerKey(input) and Settings.TriggerBot.Method == "Hold" then
-                TriggerActiveState = false
-            end
-        end)
-
-        TriggerBotConnection = RunService.Heartbeat:Connect(function()
-            if not Settings.TriggerBot.Enabled then return end
-            local char = LocalPlayer.Character
-            local tool = char and char:FindFirstChildOfClass("Tool")
-            if not tool then return end
-
-            if Settings.TriggerBot.Method == "Hold" and not TriggerActiveState then return end
-
-            local mousePos = UserInputService:GetMouseLocation()
-            local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
-            local params = RaycastParams.new()
-            params.FilterType = Enum.RaycastFilterType.Blacklist
-            params.FilterDescendantsInstances = {char, Camera}
-            local result = Workspace:Raycast(ray.Origin, ray.Direction * 2000, params)
-            local hitPart = result and result.Instance
-            if not hitPart then return end
-
-            if not Settings.TriggerBot.Parts[hitPart.Name] then return end
-
-            local model = hitPart and hitPart:FindFirstAncestorOfClass("Model")
-            local targetPlayer = model and Players:GetPlayerFromCharacter(model)
-            if not targetPlayer or targetPlayer == LocalPlayer then return end
-
-            
-            if Settings.TriggerBot.TeamCheck and IsTeam(targetPlayer) then return end
-            if Settings.TriggerBot.FriendCheck then
-                for _, name in ipairs(Settings.TriggerBot.FriendList or {}) do
-                    if name and name ~= "" and string.lower(name) == string.lower(targetPlayer.Name) then
-                        return
-                    end
-                end
-            end
-            if Settings.TriggerBot.EnemyCheck and IsTeam(targetPlayer) then return end
-
-            if Settings.TriggerBot.CheckDowned and IsDowned(targetPlayer) then return end
-            if Settings.TriggerBot.CheckForceField and HasForceField(targetPlayer) then return end
-            if not IsAlive(targetPlayer) then return end
-
-            -- click method respects ClickMs
-            if Settings.TriggerBot.Method == "Click" then
-                if os.clock() - TriggerLastClick < (Settings.TriggerBot.ClickMs or 100) / 1000 then return end
-                TriggerLastClick = os.clock()
-            end
-
-            pcall(function() tool:Activate() end)
-        end)
-    end
-end
-
-local function SetBulletTracer(enabled)
-    Settings.BulletTracer.Enabled = enabled
-    if BulletTracerConnection then
-        BulletTracerConnection:Disconnect()
-        BulletTracerConnection = nil
-    end
-
-    if enabled then
-        BulletTracerConnection = RunService.Heartbeat:Connect(function()
-            if not Settings.BulletTracer.Enabled then return end
-            local char = LocalPlayer.Character
-            local tool = char and char:FindFirstChildOfClass("Tool")
-            if not tool then return end
-
-            local mousePos = UserInputService:GetMouseLocation()
-            local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
-            local origin = Camera.CFrame.Position
-            local endPos = origin + ray.Direction * 2000
-            local line = Drawing.new("Line")
-            line.From = Vector2.new(mousePos.X, mousePos.Y)
-            line.To = Vector2.new(mousePos.X + 4, mousePos.Y + 4)
-            line.Color = Settings.BulletTracer.Color
-            line.Thickness = Settings.BulletTracer.Thickness
-            line.Transparency = 1
-            line.Visible = true
-            table.insert(BulletTracerLines, {Line = line, Time = os.clock()})
-        end)
-    else
-        for _, entry in ipairs(BulletTracerLines) do
-            pcall(function() entry.Line:Remove() end)
-        end
-        BulletTracerLines = {}
-    end
-end
 
 local function IsVisible(targetPart)
     if not targetPart then return false end
@@ -419,39 +168,6 @@ local function NewDrawing(t, props)
     return d
 end
 
-local function GetTool(character)
-    local c = character or LocalPlayer.Character
-    return c and c:FindFirstChildOfClass("Tool")
-end
-
-local function FindValueByName(parent, names)
-    if not parent then return nil end
-    for _, name in ipairs(names or {}) do
-        local child = parent:FindFirstChild(name)
-        if child and child:IsA("ValueBase") then
-            return child
-        end
-    end
-    return nil
-end
-
-local function GetSkeletonPairs(char)
-    if char and (char:FindFirstChild("UpperTorso") or char:FindFirstChild("LeftUpperArm")) then
-        return {
-            {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
-            {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
-            {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-            {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
-            {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
-        }
-    end
-
-    return {
-        {"Head", "Torso"}, {"Torso", "Left Arm"}, {"Torso", "Right Arm"},
-        {"Left Arm", "Left Leg"}, {"Right Arm", "Right Leg"},
-    }
-end
-
 local function HideAllESP(data)
     for k, v in pairs(data) do
         if k == "Corner" or k == "CornerOutline" or k == "Skeleton" then
@@ -461,142 +177,6 @@ local function HideAllESP(data)
         else
             v.Visible = false
         end
-    end
-end
-
-local function UpdateDealerESP(enabled)
-    Settings.DealerESP.Enabled = enabled
-    if not enabled then
-        for _, highlight in pairs(DealerESPObjects) do
-            pcall(function() highlight:Destroy() end)
-        end
-        DealerESPObjects = {}
-        return
-    end
-
-    local seen = {}
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        local name = string.lower(obj.Name)
-        if name:find("dealer", 1, true) or name:find("shop", 1, true) or name:find("vendor", 1, true) then
-            local target = obj:IsA("Model") and obj or obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart")
-            if target then
-                local highlight = DealerESPObjects[target]
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "DealerESP"
-                    highlight.FillTransparency = 0.5
-                    highlight.OutlineTransparency = 0
-                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    highlight.Parent = target.Parent or game.CoreGui
-                    DealerESPObjects[target] = highlight
-                end
-                highlight.Adornee = target
-                highlight.FillColor = Color3.fromRGB(255, 255, 0)
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-                highlight.Enabled = true
-                seen[target] = true
-            end
-        end
-    end
-
-    for target, highlight in pairs(DealerESPObjects) do
-        if not seen[target] then
-            pcall(function() highlight:Destroy() end)
-            DealerESPObjects[target] = nil
-        end
-    end
-end
-
-local function SetDealerESP(enabled)
-    if DealerESPConnection then
-        DealerESPConnection:Disconnect()
-        DealerESPConnection = nil
-    end
-    if enabled then
-        UpdateDealerESP(true)
-        DealerESPConnection = RunService.RenderStepped:Connect(function()
-            UpdateDealerESP(true)
-        end)
-    else
-        UpdateDealerESP(false)
-    end
-end
-
-local function SetMeleeAura(enabled)
-    Settings.MeleeAura.Enabled = enabled
-    if MeleeAuraConnection then
-        MeleeAuraConnection:Disconnect()
-        MeleeAuraConnection = nil
-    end
-    if enabled then
-        MeleeAuraConnection = RunService.Heartbeat:Connect(function()
-            local me = LocalPlayer.Character
-            local root = me and me:FindFirstChild("HumanoidRootPart")
-            local tool = GetTool(me)
-            if not root or not tool then return end
-
-            local toolName = string.lower(tool.Name)
-            local isMelee = toolName:find("knife", 1, true) or toolName:find("bat", 1, true) or toolName:find("sword", 1, true) or toolName:find("axe", 1, true) or toolName:find("crowbar", 1, true) or toolName:find("machete", 1, true) or toolName:find("shiv", 1, true) or toolName:find("katana", 1, true) or toolName:find("shovel", 1, true)
-            if not isMelee then return end
-
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr == LocalPlayer then continue end
-                local targetChar = GetChar(plr)
-                local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-                if not targetRoot or not IsAlive(plr) then continue end
-                local dist = (targetRoot.Position - root.Position).Magnitude
-                if dist <= Settings.MeleeAura.Range then
-                    pcall(function() tool:Activate() end)
-                    break
-                end
-            end
-        end)
-    end
-end
-
-local function SetInstantReload(enabled)
-    Settings.InstantReload.Enabled = enabled
-    if InstantReloadConnection then
-        InstantReloadConnection:Disconnect()
-        InstantReloadConnection = nil
-    end
-    if enabled then
-        InstantReloadConnection = RunService.Heartbeat:Connect(function()
-            local tool = GetTool(LocalPlayer.Character)
-            if not tool then return end
-            local ammo = FindValueByName(tool, {"SERVER_StoredAmmo", "Ammo", "CurrentAmmo", "Clip", "AmmoValue", "AmmoCount"})
-            if ammo then
-                local maxAmmo = FindValueByName(tool, {"MaxAmmo", "MaxAmmoValue", "MaxAmmoCount", "AmmoMax", "Capacity", "ClipSize"})
-                if maxAmmo then
-                    ammo.Value = maxAmmo.Value
-                else
-                    ammo.Value = math.max(ammo.Value, 30)
-                end
-            end
-        end)
-    end
-end
-
-local function SetInfiniteStamina(enabled)
-    Settings.InfiniteStamina.Enabled = enabled
-    if InfiniteStaminaConnection then
-        InfiniteStaminaConnection:Disconnect()
-        InfiniteStaminaConnection = nil
-    end
-    if enabled then
-        InfiniteStaminaConnection = RunService.Heartbeat:Connect(function()
-            local char = LocalPlayer.Character
-            local stats = char and char:FindFirstChild("CharStats")
-            local stamina = FindValueByName(stats, {"Stamina", "Energy", "Sprint", "Fatigue"})
-            if stamina then
-                local maxStamina = FindValueByName(stats, {"MaxStamina", "MaxEnergy", "MaxSprint", "MaxFatigue"})
-                if maxStamina then
-                    stamina.Value = maxStamina.Value
-                else
-                    stamina.Value = 100
-                end
-            end
-        end)
     end
 end
 
@@ -657,16 +237,16 @@ local function InitESP()
 
             local data = ESPObjects[plr]
             local sp, onScreen = Camera:WorldToViewportPoint(root.Position)
-            local headPos, headVisible = head and Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.8, 0))
-            local legPos, legVisible = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3.2, 0))
+            local headPos = head and Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+            local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
 
-            if not onScreen or not headVisible or not legVisible or not headPos then
+            if not onScreen or not headPos then
                 HideAllESP(data)
                 continue
             end
 
-            local h = math.max(20, math.abs(legPos.Y - headPos.Y))
-            local w = math.max(20, h / 2)
+            local h = math.abs(legPos.Y - headPos.Y)
+            local w = h / 2
             local pos = Vector2.new(headPos.X - w / 2, headPos.Y)
             local color = Settings.ESP.BoxColor
 
@@ -702,12 +282,14 @@ local function InitESP()
             end
 
             if Settings.ESP.HealthBar then
-                local maxHealth = hum.MaxHealth > 0 and hum.MaxHealth or 100
-                local hp = math.clamp(hum.Health / maxHealth, 0, 1)
-                local bh = math.max(2, h * hp)
+                local hp = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                local bh = h * hp
                 local bx, by
-                if Settings.ESP.HealthBarPosition == "Right" then
-                    bx = pos.X + w + 6
+                if Settings.ESP.HealthBarPosition == "Left" then
+                    bx = pos.X - 8
+                    by = pos.Y
+                elseif Settings.ESP.HealthBarPosition == "Right" then
+                    bx = pos.X + w + 8
                     by = pos.Y
                 else
                     bx = pos.X - 8
@@ -790,7 +372,19 @@ local function InitESP()
             end
 
             if Settings.ESP.Skeleton then
-                local map = GetSkeletonPairs(char)
+                local isR15 = char:FindFirstChild("UpperTorso") ~= nil
+                local map = isR15 and {
+                    {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
+                    {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+                    {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+                    {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+                    {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
+                } or {
+                    {"Head", "Torso"}, {"Torso", "Left Arm"}, {"Left Arm", "Left Leg"},
+                    {"Torso", "Right Arm"}, {"Right Arm", "Right Leg"},
+                    {"Torso", "Left Leg"}, {"Torso", "Right Leg"},
+                }
+
                 local idx = 1
                 for _, pair in ipairs(map) do
                     local p1, p2 = char:FindFirstChild(pair[1]), char:FindFirstChild(pair[2])
@@ -799,8 +393,7 @@ local function InitESP()
                         local s1, v1 = Camera:WorldToViewportPoint(p1.Position)
                         local s2, v2 = Camera:WorldToViewportPoint(p2.Position)
                         if v1 and v2 then
-                            line.From = Vector2.new(s1.X, s1.Y)
-                            line.To = Vector2.new(s2.X, s2.Y)
+                            line.From = Vector2.new(s1.X, s1.Y); line.To = Vector2.new(s2.X, s2.Y)
                             line.Color = Settings.ESP.SkeletonColor
                             line.Thickness = Settings.ESP.SkeletonThickness
                             line.Visible = true
@@ -812,9 +405,7 @@ local function InitESP()
                     end
                     idx += 1
                 end
-                for i = idx, #data.Skeleton do
-                    if data.Skeleton[i] then data.Skeleton[i].Visible = false end
-                end
+                for i = idx, #data.Skeleton do if data.Skeleton[i] then data.Skeleton[i].Visible = false end end
             else
                 for _, line in pairs(data.Skeleton) do line.Visible = false end
             end
@@ -890,55 +481,19 @@ local function InitSilentAim()
     end
 end
 
-local function MatchesAimbotKey(input)
-    local key = Settings.Aimbot.Key
-    if type(key) ~= "string" then return false end
-    local normalized = string.upper(key)
-
-    if normalized == "MB1" or normalized == "MOUSEBUTTON1" then
-        return input.UserInputType == Enum.UserInputType.MouseButton1
-    end
-    if normalized == "MB2" or normalized == "MOUSEBUTTON2" then
-        return input.UserInputType == Enum.UserInputType.MouseButton2
-    end
-
-    if input.KeyCode then
-        return string.upper(input.KeyCode.Name) == normalized
-    end
-
-    return false
-end
-
-local function MatchesKey(input, key)
-    if type(key) ~= "string" then return false end
-    local normalized = string.upper(key)
-
-    if normalized == "MB1" or normalized == "MOUSEBUTTON1" then
-        return input.UserInputType == Enum.UserInputType.MouseButton1
-    end
-    if normalized == "MB2" or normalized == "MOUSEBUTTON2" then
-        return input.UserInputType == Enum.UserInputType.MouseButton2
-    end
-
-    if input.KeyCode then
-        return string.upper(input.KeyCode.Name) == normalized
-    end
-
-    return false
-end
-
-local function MatchesTriggerKey(input)
-    return MatchesKey(input, Settings.TriggerBot.Key)
-end
-
 local function InitAimbot()
     local fovCircle = NewDrawing("Circle", {Thickness = 1.5, Filled = false, Transparency = 0.5, Visible = false, Color = Color3.fromRGB(255, 255, 255), NumSides = 64})
     Settings.Aimbot.FOVCircle = fovCircle
 
     local inputBegan = UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
+        local key = Settings.Aimbot.Key
+        local match = false
+        if key == "MB1" and input.UserInputType == Enum.UserInputType.MouseButton1 then match = true
+        elseif key == "MB2" and input.UserInputType == Enum.UserInputType.MouseButton2 then match = true
+        elseif input.KeyCode == Enum.KeyCode[key] then match = true end
 
-        if MatchesAimbotKey(input) then
+        if match then
             if Settings.Aimbot.Mode == "Hold" then
                 Settings.Aimbot.Active = true
             else
@@ -948,9 +503,17 @@ local function InitAimbot()
     end)
 
     local inputEnded = UserInputService.InputEnded:Connect(function(input)
-        if Settings.Aimbot.Mode == "Hold" and MatchesAimbotKey(input) then
-            Settings.Aimbot.Active = false
-            AimbotTarget = nil
+        if Settings.Aimbot.Mode == "Hold" then
+            local key = Settings.Aimbot.Key
+            local match = false
+            if key == "MB1" and input.UserInputType == Enum.UserInputType.MouseButton1 then match = true
+            elseif key == "MB2" and input.UserInputType == Enum.UserInputType.MouseButton2 then match = true
+            elseif input.KeyCode == Enum.KeyCode[key] then match = true end
+
+            if match then
+                Settings.Aimbot.Active = false
+                AimbotTarget = nil
+            end
         end
     end)
 
@@ -1208,13 +771,13 @@ CombatTab:Dropdown({
     end
 })
 
-CombatTab:Keybind({
+CombatTab:Dropdown({
     Flag = "AimbotKey",
     Title = "Aimbot Key",
-    Desc = "Set the key for aimbot hold/toggle",
+    Values = { "MB1", "MB2", "Q", "E", "F", "X", "Z", "C" },
     Value = "MB2",
     Callback = function(v)
-        Settings.Aimbot.Key = v or "MB2"
+        Settings.Aimbot.Key = v
     end
 })
 
@@ -1247,79 +810,6 @@ CombatTab:Toggle({
 })
 
 CombatTab:Space()
-
-CombatTab:Toggle({
-    Flag = "TriggerBotToggle",
-    Title = "Trigger Bot",
-    Desc = "Auto-activate weapon on target",
-    Default = false,
-    Callback = function(v)
-        SetTriggerBot(v)
-    end
-})
-
-CombatTab:Keybind({
-    Flag = "TriggerKey",
-    Title = "Trigger Key",
-    Desc = "Keybind to activate/hold trigger",
-    Value = "MB2",
-    Callback = function(v)
-        Settings.TriggerBot.Key = v or "MB2"
-    end
-})
-
-CombatTab:Dropdown({
-    Flag = "TriggerMethod",
-    Title = "Trigger Method",
-    Values = { "Hold", "Click" },
-    Value = "Hold",
-    Callback = function(v)
-        Settings.TriggerBot.Method = v
-    end
-})
-
-CombatTab:Slider({
-    Flag = "TriggerClickMs",
-    Title = "Click Ms",
-    Step = 1,
-    Value = { Min = 10, Max = 1000, Default = 100 },
-    Callback = function(v)
-        Settings.TriggerBot.ClickMs = v
-    end
-})
-
-CombatTab:Space()
-
-CombatTab:Toggle({ Flag = "TriggerPartHead", Title = "Part: Head", Default = true, Callback = function(v) Settings.TriggerBot.Parts.Head = v end })
-CombatTab:Toggle({ Flag = "TriggerPartHRP", Title = "Part: HumanoidRootPart", Default = true, Callback = function(v) Settings.TriggerBot.Parts.HumanoidRootPart = v end })
-CombatTab:Toggle({ Flag = "TriggerPartLHand", Title = "Part: LeftHand", Default = false, Callback = function(v) Settings.TriggerBot.Parts.LeftHand = v end })
-CombatTab:Toggle({ Flag = "TriggerPartRHand", Title = "Part: RightHand", Default = false, Callback = function(v) Settings.TriggerBot.Parts.RightHand = v end })
-CombatTab:Toggle({ Flag = "TriggerPartLLeg", Title = "Part: LeftLeg", Default = false, Callback = function(v) Settings.TriggerBot.Parts.LeftLeg = v end })
-CombatTab:Toggle({ Flag = "TriggerPartRLeg", Title = "Part: RightLeg", Default = false, Callback = function(v) Settings.TriggerBot.Parts.RightLeg = v end })
-
-CombatTab:Space()
-
-CombatTab:Toggle({ Flag = "TriggerFriendCheck", Title = "Friend Check", Default = false, Callback = function(v) Settings.TriggerBot.FriendCheck = v end })
-CombatTab:Toggle({ Flag = "TriggerEnemyCheck", Title = "Enemy Check", Default = false, Callback = function(v) Settings.TriggerBot.EnemyCheck = v end })
-
-CombatTab:Input({ Flag = "TriggerFriendList", Title = "Friend List (comma-separated)", Value = "", Callback = function(v)
-    local list = {}
-    for name in string.gmatch(v or "", '([^,]+)') do
-        name = name:gsub("^%s+",""):gsub("%s+$","")
-        if name ~= "" then table.insert(list, name) end
-    end
-    Settings.TriggerBot.FriendList = list
-end })
-
-CombatTab:Toggle({
-    Flag = "BulletTracerToggle",
-    Title = "Bullet Tracer",
-    Desc = "Draws simple bullet trail visuals",
-    Default = false,
-    Callback = function(v)
-        SetBulletTracer(v)
-    end
-})
 
 CombatTab:Toggle({
     Flag = "SpinbotToggle",
@@ -1363,15 +853,6 @@ VisualTab:Toggle({
     Default = false,
     Callback = function(v)
         Settings.ESP.Enabled = v
-    end
-})
-
-VisualTab:Toggle({
-    Flag = "FullBrightToggle",
-    Title = "Full Bright",
-    Default = false,
-    Callback = function(v)
-        SetFullBright(v)
     end
 })
 
@@ -1660,15 +1141,6 @@ VisualTab:Colorpicker({
 VisualTab:Space()
 
 VisualTab:Toggle({
-    Flag = "DealerESPToggle",
-    Title = "Dealer ESP",
-    Default = false,
-    Callback = function(v)
-        SetDealerESP(v)
-    end
-})
-
-VisualTab:Toggle({
     Flag = "ESPTeamCheck",
     Title = "Team Check",
     Default = false,
@@ -1700,65 +1172,6 @@ MiscTab:Toggle({
     Default = false,
     Callback = function(v)
         SetSpeedhack(v)
-    end
-})
-
-MiscTab:Toggle({
-    Flag = "MeleeAuraToggle",
-    Title = "Melee Aura",
-    Desc = "Auto-attack nearby melee targets",
-    Default = false,
-    Callback = function(v)
-        SetMeleeAura(v)
-    end
-})
-
-MiscTab:Toggle({
-    Flag = "ChatEnablerToggle",
-    Title = "Chat Enabler",
-    Default = false,
-    Callback = function(v)
-        SetChatEnabler(v)
-    end
-})
-
-MiscTab:Toggle({
-    Flag = "InstantEquipToggle",
-    Title = "Instant Equip",
-    Default = false,
-    Callback = function(v)
-        SetInstantEquip(v)
-    end
-})
-
-MiscTab:Slider({
-    Flag = "MeleeAuraRange",
-    Title = "Melee Aura Radius",
-    Min = 2,
-    Max = 25,
-    Default = 8,
-    Callback = function(v)
-        Settings.MeleeAura.Range = v
-    end
-})
-
-MiscTab:Toggle({
-    Flag = "InstantReloadToggle",
-    Title = "Instant Reload",
-    Desc = "Keep equipped weapon ammo full",
-    Default = false,
-    Callback = function(v)
-        SetInstantReload(v)
-    end
-})
-
-MiscTab:Toggle({
-    Flag = "InfiniteStaminaToggle",
-    Title = "Infinite Stamina",
-    Desc = "Keeps stamina values full",
-    Default = false,
-    Callback = function(v)
-        SetInfiniteStamina(v)
     end
 })
 
@@ -1819,27 +1232,6 @@ SettingsTab:Button({
         for _, c in ipairs(Connections) do pcall(function() c:Disconnect() end) end
         if SpeedConnection then SpeedConnection:Disconnect() end
         if SpinConnection then SpinConnection:Disconnect() end
-        if MeleeAuraConnection then MeleeAuraConnection:Disconnect() end
-        if InstantReloadConnection then InstantReloadConnection:Disconnect() end
-        if InfiniteStaminaConnection then InfiniteStaminaConnection:Disconnect() end
-        if DealerESPConnection then DealerESPConnection:Disconnect() end
-        if FullBrightConnection then FullBrightConnection:Disconnect() end
-        if InstantEquipConnection then InstantEquipConnection:Disconnect() end
-        if TriggerBotConnection then TriggerBotConnection:Disconnect() end
-        if BulletTracerConnection then BulletTracerConnection:Disconnect() end
-        if OriginalLightingSettings then
-            Lighting.Brightness = OriginalLightingSettings.Brightness
-            Lighting.Ambient = OriginalLightingSettings.Ambient
-            Lighting.OutdoorAmbient = OriginalLightingSettings.OutdoorAmbient
-            Lighting.ClockTime = OriginalLightingSettings.ClockTime
-            Lighting.ColorShift_Top = OriginalLightingSettings.ColorShift_Top
-            Lighting.ColorShift_Bottom = OriginalLightingSettings.ColorShift_Bottom
-            Lighting.GlobalShadows = OriginalLightingSettings.GlobalShadows
-            Lighting.ExposureCompensation = OriginalLightingSettings.ExposureCompensation
-        end
-        for _, highlight in pairs(DealerESPObjects) do pcall(function() highlight:Destroy() end) end
-        for _, entry in ipairs(BulletTracerLines) do pcall(function() entry.Line:Remove() end) end
-        BulletTracerLines = {}
         for plr, data in pairs(ESPObjects) do
             for k, v in pairs(data) do
                 if k == "Corner" or k == "CornerOutline" or k == "Skeleton" then
@@ -1859,7 +1251,7 @@ InitAimbot()
 
 WindUI:Notify({
     Title = "Criminality Lite",
-    Content = "Loaded successfully!",
+    Content = "Loaded successfully! Use the open button to toggle UI.",
     Icon = "check",
     Duration = 5,
 })
